@@ -1,0 +1,31 @@
+{
+  "name": "search-index-searcher",
+  "version": "0.0.1",
+  "description": "The search module for search-index",
+  "main": "lib/searcher.js",
+  "scripts": {
+    "test": "tape"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fergiemcdowall/search-index-searcher.git"
+  },
+  "keywords": [
+    "search",
+    "index",
+    "searcher"
+  ],
+  "author": "Fergus McDowall",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/fergiemcdowall/search-index-searcher/issues"
+  },
+  "homepage": "https://github.com/fergiemcdowall/search-index-searcher#readme",
+  "dependencies": {
+    "async": "^1.5.2",
+    "lodash": "^4.0.0",
+    "log-skeleton": "^1.1.0",
+    "search-context": "^0.1.0",
+    "stopword": "0.0.3"
+  }
+}
