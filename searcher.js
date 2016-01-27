@@ -12,25 +12,26 @@ var queryDefaults = {
 module.exports = function (options) {
   var log = skeleton((options) ? options.log : undefined);
   var searcher = {};
-  searcher.search = function (indexes, q, callback) {
+
+  searcher.search = function (q, callback) {
     _.defaults(q, queryDefaults);
     q.query = removeStopwordsFromQuery(q.query);
     //NASTY HACK- LOOK INTO THIS PROPERLY
     if (q.query['*'] == '') return callback(getEmptyResultSet(q));
     var keySet = getKeySet(q);
     log.info(JSON.stringify(q));
-    getDocumentFreqencies(indexes, q, keySet, function (err, frequencies) {
+    getDocumentFreqencies(q, keySet, function (err, frequencies) {
       //      console.log(frequencies)
       //improve returned resultset here:
       if (err) return callback(getEmptyResultSet(q));
       async.parallel([
         function (callback) {
-          getResults(q, frequencies, indexes, function (hits) {
+          getResults(q, frequencies, function (hits) {
             callback(null, hits);
           });
         },
         function (callback) {
-          getFacets(q, frequencies, indexes, function (facets) {
+          getFacets(q, frequencies, function (facets) {
             callback(null, facets);
           });
         }],
@@ -44,7 +45,7 @@ module.exports = function (options) {
           response.facets = results[1];
           response.facetRanges = results[2];
           response.hits = results[0];
-          callback(response);
+          callback(err, response);
         });
     });
   };
@@ -80,13 +81,13 @@ module.exports = function (options) {
     else return _.sortBy(facet, 'value').reverse();
   };
 
-  var getBucketedFacet = function (index, filter, facetRangeKeys, activeFilters, callbacky) {
+  var getBucketedFacet = function (filter, facetRangeKeys, activeFilters, callbacky) {
     async.reduce(facetRangeKeys, [], function (memo, item, callback) {
       var gte = item.start.split('￮')[4];
       var lte = item.end.split('￮')[4];
       var key = gte + '-' + lte;
       var thisSet = [];
-      index.createReadStream({gte:item.start, lte:item.end})
+      options.indexes.createReadStream({gte:item.start, lte:item.end})
         .on('data', function (data) {
           thisSet = thisSet.concat(data.value);
         })
@@ -123,10 +124,10 @@ module.exports = function (options) {
     });
   };
 
-  var getNonRangedFacet = function (totalQueryTokens, index, facetRangeKeys,
+  var getNonRangedFacet = function (totalQueryTokens, facetRangeKeys,
                                    filterSet, filter, callbacky) {
     async.reduce(facetRangeKeys, [], function (memo, item, callback) {
-      index.createReadStream({gte:item.start, lte:item.end})
+      options.indexes.createReadStream({gte:item.start, lte:item.end})
         .on('data', function (data) {
           var thisKey = data.key.split('￮')[4];
           memo.push({key: thisKey,
@@ -185,7 +186,7 @@ module.exports = function (options) {
     });
   };
 
-  var getFacets = function (q, frequencies, index, callbacky) {
+  var getFacets = function (q, frequencies, callbacky) {
     if (!q.facets) return callbacky({});
     var searchFieldQueryTokens = getSearchFieldQueryTokens(q);
     async.map(Object.keys(q.facets), function (facetName, callback) {
@@ -210,7 +211,7 @@ module.exports = function (options) {
         var activeFilters = [];
         if (q.filter) if (q.filter[facetName]) activeFilters = q.filter[facetName];
         getBucketedFacet
-        (index, frequencies.allDocsIDsInResultSet, facetRangeKeys, activeFilters, function (facet) {
+        (frequencies.allDocsIDsInResultSet, facetRangeKeys, activeFilters, function (facet) {
           callback(null, {key: facetName,
                           value: sortFacet(facet, sortType).slice(0, limit)});
         });
@@ -218,7 +219,7 @@ module.exports = function (options) {
       else {
         var filterValues = [];
         if (q.filter) filterValues = q.filter[facetName] || [];
-        getNonRangedFacet(searchFieldQueryTokens.length, index,
+        getNonRangedFacet(searchFieldQueryTokens.length,
            facetRangeKeys, frequencies.allDocsIDsInResultSet, filterValues, function (facet) {
            callback(null, {key: facetName,
                            value: sortFacet(facet, sortType).slice(0, limit)});
@@ -284,11 +285,11 @@ module.exports = function (options) {
     return resultSet;
   };
 
-  var getDocumentFreqencies = function (indexes, q, keySet, callback) {
+  var getDocumentFreqencies = function (q, keySet, callback) {
     //Check document frequencies
     async.map(keySet, function (item, callbacky) {
       var uniq = [];
-      indexes.createReadStream({gte: item[0], lte: item[1] + '￮'})
+      options.indexes.createReadStream({gte: item[0], lte: item[1] + '￮'})
         .on('data', function (data) {
           uniq = uniqFast(uniq.concat(data.value));
         })
@@ -326,7 +327,7 @@ module.exports = function (options) {
       for (var i = 0; i < results.length; i++)
         docFreqs.push([results[i].length, keySet[i]]);
       //      var err = (intersection.length === 0) || undefined;
-      indexes.get('DOCUMENT-COUNT', function (err, value) {
+      options.indexes.get('DOCUMENT-COUNT', function (err, value) {
         return callback(err,
                         {docFreqs:docFreqs.sort(),
                          allDocsIDsInResultSet:intersection,
@@ -350,7 +351,7 @@ module.exports = function (options) {
     return result;
   }
 
-  var getResults = function (q, frequencies, indexes, callbackX) {
+  var getResults = function (q, frequencies, callbackX) {
     var hits = [];
     //Key an RIKeyset in descending order of document frequency
     var RIKeySet = [];
@@ -369,7 +370,7 @@ module.exports = function (options) {
         rangeEnd: lte.split('￮')[4],
         tf: []
       };
-      indexes.createReadStream({gte: gte, lte: lte + '￮'})
+      options.indexes.createReadStream({gte: gte, lte: lte + '￮'})
         .on('data', function (data) {
           for (var i = 0; i < data.value.length; i++)
             if (frequencies.allDocsIDsInResultSet.indexOf(data.value[i][1]) != -1)
@@ -424,15 +425,15 @@ module.exports = function (options) {
         return 0;
       });
       hits = hits.slice((+q.offset), (+q.offset) + (+q.pageSize));
-      glueDocs(hits, indexes, q, function (result) {
+      glueDocs(hits, q, function (result) {
         return callbackX(result);
       });
     });
   };
 
-  var glueDocs = function (hits, indexes, q, callbackX) {
+  var glueDocs = function (hits, q, callbackX) {
     async.mapSeries(hits, function (item, callback) {
-      indexes.get('DOCUMENT￮' + item.id + '￮', function (err, value) {
+      options.indexes.get('DOCUMENT￮' + item.id + '￮', function (err, value) {
         item.document = value;
         var terms = q.query['*'];
         if (q.query[q.teaser])

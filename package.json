@@ -1,8 +1,8 @@
 {
   "name": "search-index-searcher",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "The search module for search-index",
-  "main": "lib/searcher.js",
+  "main": "searcher.js",
   "scripts": {
     "test": "tape"
   },
