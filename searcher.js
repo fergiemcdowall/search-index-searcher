@@ -16,12 +16,10 @@ module.exports = function (options) {
   searcher.search = function (q, callback) {
     _.defaults(q, queryDefaults);
     q.query = removeStopwordsFromQuery(q.query);
-    //NASTY HACK- LOOK INTO THIS PROPERLY
-    if (q.query['*'] == '') return callback(getEmptyResultSet(q));
     var keySet = getKeySet(q);
+    if (keySet.length == 0) return callback(getEmptyResultSet(q));
     log.info(JSON.stringify(q));
     getDocumentFreqencies(q, keySet, function (err, frequencies) {
-      //      console.log(frequencies)
       //improve returned resultset here:
       if (err) return callback(getEmptyResultSet(q));
       async.parallel([

@@ -1,2 +1,2 @@
 # search-index-searcher
-search in a search-index
+The search module for [search-index](github.com/fergiemcdowall/search-index)
