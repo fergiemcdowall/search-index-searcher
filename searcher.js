@@ -379,9 +379,12 @@ module.exports = function (givenOptions, callback) {
         };
         options.indexes.createReadStream({gte: gte, lte: lte + '￮'})
           .on('data', function (data) {
-            for (var i = 0; i < data.value.length; i++)
-              if (frequencies.allDocsIDsInResultSet.indexOf(data.value[i][1]) != -1)
+            console.log(data.value)
+            for (var i = 0; i < data.value.length; i++) {
+              if (frequencies.allDocsIDsInResultSet.indexOf(data.value[i][1]) != -1) {
                 hits.tf.push(data.value[i]);
+              }
+            }
           })
           .on('error', function (err) {
             log.warn('Oh my!', err);
@@ -474,7 +477,6 @@ var getOptions = function(givenOptions, callbacky) {
   const async = require('async')
   const bunyan = require('bunyan')
   const levelup = require('levelup')
-  const leveldown = require('leveldown')
   const tv = require('term-vector')
   givenOptions = givenOptions || {}
   async.parallel([
