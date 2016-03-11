@@ -379,7 +379,6 @@ module.exports = function (givenOptions, callback) {
         };
         options.indexes.createReadStream({gte: gte, lte: lte + '￮'})
           .on('data', function (data) {
-            console.log(data.value)
             for (var i = 0; i < data.value.length; i++) {
               if (frequencies.allDocsIDsInResultSet.indexOf(data.value[i][1]) != -1) {
                 hits.tf.push(data.value[i]);
