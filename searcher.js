@@ -25,8 +25,10 @@ module.exports = function (givenOptions, callback) {
       if (keySet.length == 0) return callback(getEmptyResultSet(q));
       log.info(JSON.stringify(q));
       getDocumentFreqencies(q, keySet, options.indexes, function (err, frequencies) {
+
+        // console.log(JSON.stringify(frequencies, null, 2))
         //improve returned resultset here:
-        if (err) return callback(getEmptyResultSet(q));
+        if (err) return callback(err, getEmptyResultSet(q));
         async.parallel([
           function (callback) {
             getResults(q, frequencies, keySet, options.indexes, function (err, hits) {
@@ -70,13 +72,15 @@ var removeStopwordsFromQuery = function (qquery, stopwords) {
   return qquery;
 };
 
-var getSearchFieldQueryTokens = function (q) {
+var getSearchFieldQueryTokens = function (query) {
   var searchFieldQueryTokens = [];
-  for (var queryField in q.query) { if (q.query.hasOwnProperty(queryField))
-    for (var i = 0; i < q.query[queryField].length; i++) {
-      searchFieldQueryTokens.push(queryField + '￮' + q.query[queryField][i]);
+  for (var queryField in query) {
+    if (query.hasOwnProperty(queryField)) {
+      for (var i = 0; i < query[queryField].length; i++) {
+        searchFieldQueryTokens.push(queryField + '￮' + query[queryField][i]);
+      }
     }
-                                  }
+  }
   return searchFieldQueryTokens;
 };
 
@@ -88,6 +92,7 @@ var sortFacet = function (facet, sortType) {
 };
 
 var getBucketedFacet = function (filter, facetRangeKeys, activeFilters, indexes, callbacky) {
+
   async.reduce(facetRangeKeys, [], function (memo, item, callback) {
     var gte = item.start.split('￮')[4];
     var lte = item.end.split('￮')[4];
@@ -192,9 +197,10 @@ var getNonRangedFacet = function (totalQueryTokens, facetRangeKeys,
   });
 };
 
+
 var getFacets = function (q, frequencies, indexes, callbacky) {
   if (!q.facets) return callbacky({});
-  var searchFieldQueryTokens = getSearchFieldQueryTokens(q);
+  var searchFieldQueryTokens = getSearchFieldQueryTokens(q.query[0]);
   async.map(Object.keys(q.facets), function (facetName, callback) {
     var item = q.facets[facetName];
     var facetRangeKeys = [];
@@ -246,6 +252,7 @@ var getFacets = function (q, frequencies, indexes, callbacky) {
   });
 };
 
+
 //supposedly fastest way to get unique values in an array
 //http://stackoverflow.com/questions/9229645/remove-duplicates-from-javascript-array
 var uniqFast = function (a) {
@@ -266,28 +273,37 @@ var uniqFast = function (a) {
 var getKeySet = function (q) {
   //generate keyset
   var keySet = [];
-  for (var queryField in q.query) {
-    if (q.query.hasOwnProperty(queryField)) {
-      for (var j = 0; j < q.query[queryField].length; j++) {
-        if (q.filter) {
-          for (var k in q.filter) {
-            if (q.filter.hasOwnProperty(k)) {
-              for (var i = 0; i < q.filter[k].length; i++) {
-                keySet.push(['TF￮' + queryField + '￮' + q.query[queryField][j] +
-                             '￮' + k + '￮' + q.filter[k][i][0],
-                             'TF￮' + queryField + '￮' + q.query[queryField][j] +
-                             '￮' + k + '￮' + q.filter[k][i][1]]);
+
+  if (!_.isArray(q.query))
+    q.query = [q.query]
+
+  q.query.forEach(function(or) {
+    keySet.push([])
+    for (var queryField in or) {
+      if (or.hasOwnProperty(queryField)) {
+        for (var j = 0; j < or[queryField].length; j++) {
+          if (q.filter) {
+            for (var k in q.filter) {
+              if (q.filter.hasOwnProperty(k)) {
+                for (var i = 0; i < q.filter[k].length; i++) {
+                  keySet[keySet.length - 1].push(
+                    ['TF￮' + queryField + '￮' + or[queryField][j] +
+                     '￮' + k + '￮' + q.filter[k][i][0],
+                     'TF￮' + queryField + '￮' + or[queryField][j] +
+                     '￮' + k + '￮' + q.filter[k][i][1]]);
+                }
               }
             }
           }
-        }
-        else {
-          keySet.push(['TF￮' + queryField + '￮' + q.query[queryField][j] + '￮￮',
-                       'TF￮' + queryField + '￮' + q.query[queryField][j] + '￮￮￮']);
+          else {
+            keySet[keySet.length - 1].push(
+              ['TF￮' + queryField + '￮' + or[queryField][j] + '￮￮',
+               'TF￮' + queryField + '￮' + or[queryField][j] + '￮￮￮']);
+          }
         }
       }
     }
-  }
+  })
   return keySet;
 };
 
@@ -300,10 +316,15 @@ var getEmptyResultSet = function (q) {
   return resultSet;
 };
 
-var getDocumentFreqencies = function (q, keySet, indexes, callback) {
+var getDocumentFreqencies = function (q, keySets, indexes, callback) {
   //Check document frequencies
-  async.map(keySet, function (item, callbacky) {
+
+  // just do a DB lookup for each unique value
+  var keySetsUniq = _.uniqWith(_.flatten(keySets), _.isEqual)
+  
+  async.map(keySetsUniq, function (item, callback) {
     var uniq = [];
+    // loop through each AND condition
     indexes.createReadStream({gte: item[0], lte: item[1] + '￮'})
       .on('data', function (data) {
         uniq = uniqFast(uniq.concat(data.value));
@@ -312,42 +333,110 @@ var getDocumentFreqencies = function (q, keySet, indexes, callback) {
         log.warn('Oh my!', err);
       })
       .on('end', function () {
-        callbacky(null, {key: item, value: uniq.sort()});
-      });
+        callback(null, {key: item, value: uniq.sort()});
+      })
   }, function (asyncerr, results) {
-    var obj = {};
-    obj[results[0].key[1].split('￮')[1] + '￮' +
-        results[0].key[1].split('￮')[2]] = results[0].value;
-    var df = results.reduce(function (prev, cur) {
-      var curToken = cur.key[1].split('￮')[1] + '￮' + cur.key[1].split('￮')[2];
-      if ((_.isEmpty(prev)) || (!prev[curToken])) prev[curToken] = cur.value;
-      else prev[curToken] = _.intersection(prev[curToken], cur.value);
-      return prev;
-    }, obj);
-    var intersection = _.values(df).reduce(function (prev, cur) {
-      return _.intersection(prev, cur);
-    });
-    Object.keys(df).forEach(function (i) {
-      df[i] = df[i].length;
-    });
-
-    var fieldWeight = {};
-    Object.keys(df).forEach(function (i) {
-      fieldWeight[i] = 1;
-      if (q.weight) if (q.weight[i.split('￮')[0]])
-        fieldWeight[i] = q.weight[i.split('￮')[0]]
-    });
     
-    var docFreqs = [];
-    for (var i = 0; i < results.length; i++)
-      docFreqs.push([results[i].value.length, keySet[i]]);
+    var docFreqs = {}
+    docFreqs.allDocsIDsInResultSet = []
+    docFreqs.totalDocsInIndex = 0
+    docFreqs.df = {}
+    docFreqs.idf = {}
+    docFreqs.fieldWeight = {}
+    docFreqs.docFreqs = []
+
+    // console.log(JSON.stringify(results, null, 2))
+
+
+    // get document frequencies
+    results.forEach(function(item) {
+      var dfToken = item.key[1].split('￮')[1] + '￮' + item.key[1].split('￮')[2]
+      var dfValue = item.value.length
+      docFreqs.df[dfToken] = dfValue
+    })
+   
+    // get field weight
+    Object.keys(docFreqs.df).forEach(function (i) {
+      docFreqs.fieldWeight[i] = 1
+      if (q.weight) if (q.weight[i.split('￮')[0]])
+        docFreqs.fieldWeight[i] = q.weight[i.split('￮')[0]]
+    })
+
+
+    // for each OR
+    keySets.forEach(function(keySet) {
+      // console.log(keySet)
+      // for each AND
+      var set = []
+
+      // ANDing
+      keySet.forEach(function(tf) {
+        set = set.concat(_.filter(results, function(o) {
+          return _.isEqual(o.key, tf)
+        }).map(function(o) {return o.value}))
+      })
+
+      // do an intersection on AND values- token must be in all sets
+      var setIntersect = set.reduce(function (prev, cur) {
+        return _.intersection(prev, cur);
+      })
+      docFreqs.allDocsIDsInResultSet = _.union(setIntersect, docFreqs.allDocsIDsInResultSet)
+//      console.log(docFreqs.allDocsIDsInResultSet)
+    })
+
+    // do docFreqs for working out ranges and stuff
+    for (var i = 0; i < results.length; i++) {
+      docFreqs.docFreqs.push([results[i].value.length, keySetsUniq[i]])
+    }
+
+
+    // var obj = {};
+    // obj[results[0][0].key[1].split('￮')[1] + '￮' +
+    //     results[0][0].key[1].split('￮')[2]] = results[0][0].value;
+
+    // var df = results[0].reduce(function (prev, cur) {
+    //   var curToken = cur.key[1].split('￮')[1] + '￮' + cur.key[1].split('￮')[2];
+    //   if ((_.isEmpty(prev)) || (!prev[curToken])) prev[curToken] = cur.value;
+    //   else prev[curToken] = _.intersection(prev[curToken], cur.value);
+    //   return prev;
+    // }, obj);
+
+    // var intersection = _.values(df).reduce(function (prev, cur) {
+    //   return _.intersection(prev, cur);
+    // });
+    // Object.keys(df).forEach(function (i) {
+    //   df[i] = df[i].length;
+    // });
+
+    // var fieldWeight = {};
+    // Object.keys(df).forEach(function (i) {
+    //   fieldWeight[i] = 1;
+    //   if (q.weight) if (q.weight[i.split('￮')[0]])
+    //     fieldWeight[i] = q.weight[i.split('￮')[0]]
+    // });
+    
+    // var docFreqsx = [];
+    // for (var i = 0; i < results[0].length; i++) {
+    //   docFreqsx.push([results[0][i].value.length, keySets[0][i]])
+    // }
+    // indexes.get('DOCUMENT-COUNT', function (err, value) {
+    //   return callback(err,
+    //                   {docFreqs:docFreqsx.sort(),
+    //                    allDocsIDsInResultSet:intersection,
+    //                    df: df,
+    //                    fieldWeight: fieldWeight,
+    //                    totalDocsInIndex: value});
+    // });
+
     indexes.get('DOCUMENT-COUNT', function (err, value) {
-      return callback(err,
-                      {docFreqs:docFreqs.sort(),
-                       allDocsIDsInResultSet:intersection,
-                       df: df,
-                       fieldWeight: fieldWeight,
-                       totalDocsInIndex: value});
+      docFreqs.totalDocsInIndex = value
+
+      //TODO: get inverse document frequencies here
+      _.each(docFreqs.df, function(val, key){
+        docFreqs.idf[key] = Math.log10(1 + (docFreqs.totalDocsInIndex / val))
+      })
+
+      return callback(err, docFreqs);
     });
   });
 };
@@ -396,22 +485,29 @@ var getResultsSortedByField = function (q, frequencies, keySet, indexes, callbac
 
 // var getResults = function (q, frequencies, indexes, callbackX) {
 var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
-  var hits = [];
   async.mapSeries(frequencies.docFreqs, function (item, callbacker) {
     var gte = item[1][0].replace(/^TF￮/, 'RI￮');
     var lte = item[1][1].replace(/^TF￮/, 'RI￮');
+    var field = gte.split('￮')[1]
+    var token = gte.split('￮')[2]
+    var idf = frequencies.idf[field + '￮' + token]
     var hits = {
-      field: gte.split('￮')[1],
-      token: gte.split('￮')[2],
+      field: field,
+      token: token,
       rangeStart: gte.split('￮')[4],
       rangeEnd: lte.split('￮')[4],
-      tf: []
+      idf: idf,
+      tf: [],
+      tfidf: []
     };
+
+    //TODO: only has to go up to page size (otherwise: WHATS THE POINT?!)
     indexes.createReadStream({gte: gte, lte: lte + '￮'})
       .on('data', function (data) {
         for (var i = 0; i < data.value.length; i++) {
           if (frequencies.allDocsIDsInResultSet.indexOf(data.value[i][1]) != -1) {
             hits.tf.push(data.value[i]);
+            hits.tfidf.push([+data.value[i][0] * idf, data.value[i][1]]);
           }
         }
       })
@@ -422,47 +518,90 @@ var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
         return callbacker(null, hits);
       });
   }, function (err, result) {
-    var alreadyProcessed = [];
-    for (var i = 0; i < result[0].tf.length; i++) {
-      var thisID = result[0].tf[i][1];
-      //result[0] contains dupes- check for already processed
-      if (alreadyProcessed.indexOf(thisID) != -1) continue;
-      else alreadyProcessed.push(thisID);
-      var hit = {
-        id: thisID,
-        tf: [],
-        score: 0
-      };
-      result.forEach(function (tokenSets) {
-        tokenSets.tf.forEach(function (tokenSet) {
-          if (tokenSet[1] != hit.id) return;
-          hit.tf.push(
-            [tokenSets.field + '￮' + tokenSets.token,
-             tokenSet[0]]
-          );
-        });
-      });
-      //strip duplicates from tf object
-      hit.tf = _.uniq(hit.tf, function (n) {
-        return n[0] + n[1];
-      });
-      hit.tf.forEach(function (tfEntry) {
-        //tf-idf here
-        var tf = +tfEntry[1];
-        var weight = +frequencies.fieldWeight[tfEntry[0]];
-        var totalDocsInIndex = +frequencies.totalDocsInIndex;
-        var df = +frequencies.df[tfEntry[0]];
-        var idf = weight * Math.log10(1 + (totalDocsInIndex / df));
-        hit.score = +hit.score + (tf * idf);
-      });
+    //Should now have the top n (n = offset + pagesize) for every token
+    var hits = []
+    //TODO: weight results by field
 
-      hits.push(hit);
-    }
+    // isolate tfidf scores
+    hits = _.flatten(_.map(result, function(item) {
+      var tfidf = item.tfidf
+      tfidf.map(function(i) {
+        i.push(item.idf)
+        i.push(item.token)
+        i.push(item.field)
+        return i
+      })
+      return tfidf
+    })).sort(function(a, b) {
+      return a[1] - b[1]
+    })
+    
+    // aggregate hit score on ID
+    hits = _.groupBy(hits, function(item) {
+      return item[1]
+    })
+
+    hits = _.map(hits, function(val, id) {
+      var newHit = {}
+      newHit.id = id
+      newHit.tfidf = val.map(function(item) {
+        item.splice(1, 1)
+        return item
+      })
+      //TODO deal with weight
+      newHit.score = val.reduce(function(prev, cur) {
+        //tfidf worked out here
+        return prev + (cur[0] * cur[1])
+      }, 0)
+      return newHit
+    })
+
+    // var alreadyProcessed = [];
+    // for (var i = 0; i < result[0].tf.length; i++) {
+    //   var thisID = result[0].tf[i][1];
+    //   //result[0] contains dupes- check for already processed
+    //   if (alreadyProcessed.indexOf(thisID) != -1) continue;
+    //   else alreadyProcessed.push(thisID);
+    //   var hit = {
+    //     id: thisID,
+    //     tf: [],
+    //     score: 0
+    //   };
+    //   result.forEach(function (tokenSets) {
+    //     tokenSets.tf.forEach(function (tokenSet) {
+    //       if (tokenSet[1] != hit.id) return;
+    //       hit.tf.push(
+    //         [tokenSets.field + '￮' + tokenSets.token,
+    //          tokenSet[0]]
+    //       );
+    //     });
+    //   });
+    //   //strip duplicates from tf object
+    //   hit.tf = _.uniq(hit.tf, function (n) {
+    //     return n[0] + n[1];
+    //   });
+    //   hit.tf.forEach(function (tfEntry) {
+    //     //tf-idf here
+    //     var tf = +tfEntry[1];
+    //     var weight = +frequencies.fieldWeight[tfEntry[0]];
+    //     var totalDocsInIndex = +frequencies.totalDocsInIndex;
+    //     var df = +frequencies.df[tfEntry[0]];
+    //     var idf = weight * Math.log10(1 + (totalDocsInIndex / df));
+    //     hit.score = +hit.score + (tf * idf);
+    //   });
+
+    //   hits.push(hit);
+    // }
+
+
     hits = hits.sort(function (a, b) {
       if (a.score < b.score) return 1;
       if (a.score > b.score) return -1;
+      if (a.id < b.id) return 1;
+      if (a.id > b.id) return -1;
       return 0;
     });
+
     hits = hits.slice((+q.offset), (+q.offset) + (+q.pageSize));
     glueDocs(hits, q, indexes, function (result) {
       return callbackX(null, result);
@@ -474,16 +613,17 @@ var glueDocs = function (hits, q, indexes, callbackX) {
   async.mapSeries(hits, function (item, callback) {
     indexes.get('DOCUMENT￮' + item.id + '￮', function (err, value) {
       item.document = value;
-      var terms = q.query['*'];
-      if (q.query[q.teaser])
-        terms = q.query[q.teaser];
+      var terms = q.query[0]['*'];
+      if (q.query[0][q.teaser])
+        terms = q.query[0][q.teaser];    // this is a nasty hack-
+                                         // remove the [0]
       if (q.teaser && item.document[q.teaser]) {
         try {
           item.document.teaser = scontext(item.document[q.teaser], terms, 400, function hi (string) {
             return '<span class="sc-em">' + string + '</span>';
           });
         } catch (e) {
-          log.warn('error with teaser generation: ' + e);
+          console.log('error with teaser generation: ' + e);
         }
       }
       callback(null, item);
