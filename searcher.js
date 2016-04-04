@@ -339,6 +339,7 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
     
     var docFreqs = {}
     docFreqs.allDocsIDsInResultSet = []
+    docFreqs.ORSets = []
     docFreqs.totalDocsInIndex = 0
     docFreqs.df = {}
     docFreqs.idf = {}
@@ -357,7 +358,7 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
    
     // get field weight
     Object.keys(docFreqs.df).forEach(function (i) {
-      docFreqs.fieldWeight[i] = 1
+      docFreqs.fieldWeight[i] = 0
       if (q.weight) if (q.weight[i.split('￮')[0]])
         docFreqs.fieldWeight[i] = q.weight[i.split('￮')[0]]
     })
@@ -377,11 +378,21 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
       })
 
       // do an intersection on AND values- token must be in all sets
-      var setIntersect = set.reduce(function (prev, cur) {
+      var ORSet = set.reduce(function (prev, cur) {
         return _.intersection(prev, cur);
       })
-      docFreqs.allDocsIDsInResultSet = _.union(setIntersect, docFreqs.allDocsIDsInResultSet)
-//      console.log(docFreqs.allDocsIDsInResultSet)
+
+      docFreqs.ORSets.push({
+        keySet: keySet,
+        ORSet: ORSet.map(function(item) {
+          return {
+            id: item,
+            tfidf: []
+          }
+        })
+      })
+
+      docFreqs.allDocsIDsInResultSet = _.union(ORSet, docFreqs.allDocsIDsInResultSet)
     })
 
     // do docFreqs for working out ranges and stuff
@@ -389,44 +400,6 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
       docFreqs.docFreqs.push([results[i].value.length, keySetsUniq[i]])
     }
 
-
-    // var obj = {};
-    // obj[results[0][0].key[1].split('￮')[1] + '￮' +
-    //     results[0][0].key[1].split('￮')[2]] = results[0][0].value;
-
-    // var df = results[0].reduce(function (prev, cur) {
-    //   var curToken = cur.key[1].split('￮')[1] + '￮' + cur.key[1].split('￮')[2];
-    //   if ((_.isEmpty(prev)) || (!prev[curToken])) prev[curToken] = cur.value;
-    //   else prev[curToken] = _.intersection(prev[curToken], cur.value);
-    //   return prev;
-    // }, obj);
-
-    // var intersection = _.values(df).reduce(function (prev, cur) {
-    //   return _.intersection(prev, cur);
-    // });
-    // Object.keys(df).forEach(function (i) {
-    //   df[i] = df[i].length;
-    // });
-
-    // var fieldWeight = {};
-    // Object.keys(df).forEach(function (i) {
-    //   fieldWeight[i] = 1;
-    //   if (q.weight) if (q.weight[i.split('￮')[0]])
-    //     fieldWeight[i] = q.weight[i.split('￮')[0]]
-    // });
-    
-    // var docFreqsx = [];
-    // for (var i = 0; i < results[0].length; i++) {
-    //   docFreqsx.push([results[0][i].value.length, keySets[0][i]])
-    // }
-    // indexes.get('DOCUMENT-COUNT', function (err, value) {
-    //   return callback(err,
-    //                   {docFreqs:docFreqsx.sort(),
-    //                    allDocsIDsInResultSet:intersection,
-    //                    df: df,
-    //                    fieldWeight: fieldWeight,
-    //                    totalDocsInIndex: value});
-    // });
 
     indexes.get('DOCUMENT-COUNT', function (err, value) {
       docFreqs.totalDocsInIndex = value
@@ -485,6 +458,8 @@ var getResultsSortedByField = function (q, frequencies, keySet, indexes, callbac
 
 // var getResults = function (q, frequencies, indexes, callbackX) {
 var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
+//    console.log(JSON.stringify(frequencies, null, 2))
+
   async.mapSeries(frequencies.docFreqs, function (item, callbacker) {
     var gte = item[1][0].replace(/^TF￮/, 'RI￮');
     var lte = item[1][1].replace(/^TF￮/, 'RI￮');
@@ -505,9 +480,31 @@ var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
     indexes.createReadStream({gte: gte, lte: lte + '￮'})
       .on('data', function (data) {
         for (var i = 0; i < data.value.length; i++) {
-          if (frequencies.allDocsIDsInResultSet.indexOf(data.value[i][1]) != -1) {
-            hits.tf.push(data.value[i]);
-            hits.tfidf.push([+data.value[i][0] * idf, data.value[i][1]]);
+          var thisID = data.value[i][1]
+          var thisTF = +data.value[i][0]
+          if (frequencies.allDocsIDsInResultSet.indexOf(thisID) != -1) {
+            
+            // hits.tf.push(data.value[i]);
+            // hits.tfidf.push([thisID, thisTF, idf, thisTF * idf]);
+
+            frequencies.ORSets = frequencies.ORSets.map(function(ORSet) {
+              ORSet.ORSet = ORSet.ORSet.map(function(hit){
+                if (hit.id == thisID) {
+                  ORSet.keySet.forEach(function(key) {
+                    if (_.isEqual(key, item[1])) {
+                      // hit.tf.push(data.value[i]);
+                      hit.tfidf.push([token,
+                                      field,
+                                      thisTF * idf,
+                                      thisTF,
+                                      idf]);
+                    }
+                  })
+                }
+                return hit
+              })
+              return ORSet
+            })
           }
         }
       })
@@ -518,81 +515,38 @@ var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
         return callbacker(null, hits);
       });
   }, function (err, result) {
+
+    //Safe OR results are now in frequencies.ORSets so this should now
+    //be edited to read form frequencies.ORSets
+
     //Should now have the top n (n = offset + pagesize) for every token
     var hits = []
     //TODO: weight results by field
 
-    // isolate tfidf scores
-    hits = _.flatten(_.map(result, function(item) {
-      var tfidf = item.tfidf
-      tfidf.map(function(i) {
-        i.push(item.idf)
-        i.push(item.token)
-        i.push(item.field)
-        return i
+    hits = _(frequencies.ORSets).map(function(item) {
+      return item.ORSet
+    })
+      .flatten()
+      .groupBy(function(item) {
+        return item.id
       })
-      return tfidf
-    })).sort(function(a, b) {
-      return a[1] - b[1]
-    })
-    
-    // aggregate hit score on ID
-    hits = _.groupBy(hits, function(item) {
-      return item[1]
-    })
+      .value()
 
-    hits = _.map(hits, function(val, id) {
-      var newHit = {}
-      newHit.id = id
-      newHit.tfidf = val.map(function(item) {
-        item.splice(1, 1)
-        return item
+    hits = _.map(hits, function (val, key) {
+      var hit = {}
+      hit.id = key
+      hit.score = 0
+      hit.tfidf = []
+      // OR
+      val.forEach(function (item) {
+        hit.tfidf.push(item.tfidf)
+        // AND
+        item.tfidf.forEach(function(ANDTokens) {
+          hit.score += +ANDTokens[2]          
+        })
       })
-      //TODO deal with weight
-      newHit.score = val.reduce(function(prev, cur) {
-        //tfidf worked out here
-        return prev + (cur[0] * cur[1])
-      }, 0)
-      return newHit
+      return hit
     })
-
-    // var alreadyProcessed = [];
-    // for (var i = 0; i < result[0].tf.length; i++) {
-    //   var thisID = result[0].tf[i][1];
-    //   //result[0] contains dupes- check for already processed
-    //   if (alreadyProcessed.indexOf(thisID) != -1) continue;
-    //   else alreadyProcessed.push(thisID);
-    //   var hit = {
-    //     id: thisID,
-    //     tf: [],
-    //     score: 0
-    //   };
-    //   result.forEach(function (tokenSets) {
-    //     tokenSets.tf.forEach(function (tokenSet) {
-    //       if (tokenSet[1] != hit.id) return;
-    //       hit.tf.push(
-    //         [tokenSets.field + '￮' + tokenSets.token,
-    //          tokenSet[0]]
-    //       );
-    //     });
-    //   });
-    //   //strip duplicates from tf object
-    //   hit.tf = _.uniq(hit.tf, function (n) {
-    //     return n[0] + n[1];
-    //   });
-    //   hit.tf.forEach(function (tfEntry) {
-    //     //tf-idf here
-    //     var tf = +tfEntry[1];
-    //     var weight = +frequencies.fieldWeight[tfEntry[0]];
-    //     var totalDocsInIndex = +frequencies.totalDocsInIndex;
-    //     var df = +frequencies.df[tfEntry[0]];
-    //     var idf = weight * Math.log10(1 + (totalDocsInIndex / df));
-    //     hit.score = +hit.score + (tf * idf);
-    //   });
-
-    //   hits.push(hit);
-    // }
-
 
     hits = hits.sort(function (a, b) {
       if (a.score < b.score) return 1;
