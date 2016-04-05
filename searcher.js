@@ -1,8 +1,21 @@
-var async = require('async');
-var _ = require('lodash');
-var scontext = require('search-context');
-var skeleton = require('log-skeleton');
-var sw = require('stopword');
+const bunyan = require('bunyan')
+const _compact = require('lodash.compact');
+const _defaults = require('lodash.defaults');
+const _forEach = require('lodash.foreach');
+const _filter = require('lodash.filter');
+const _flatten = require('lodash.flatten');
+const _groupBy = require('lodash.groupby');
+const _intersection = require('lodash.intersection');
+const _isEqual = require('lodash.isequal');
+const _map = require('lodash.map');
+const _sortBy = require('lodash.sortby');
+const _union = require('lodash.union');
+const _uniqWith = require('lodash.uniqwith');
+const async = require('async');
+const scontext = require('search-context');
+const skeleton = require('log-skeleton');
+const sw = require('stopword');
+
 var queryDefaults = {
   maxFacetLimit: 100,
   offset: 0,
@@ -19,7 +32,7 @@ module.exports = function (givenOptions, callback) {
     var Searcher = {};
 
     Searcher.search = function(q, callback) {
-      _.defaults(q, queryDefaults);
+      _defaults(q, queryDefaults);
       q.query = removeStopwordsFromQuery(q.query, options.stopwords);
       var keySet = getKeySet(q);
       if (keySet.length == 0) return callback(getEmptyResultSet(q));
@@ -40,6 +53,10 @@ module.exports = function (givenOptions, callback) {
               callback(null, facets);
             });
           }], function (err, results) {
+
+            if(results[0].length === 0) {
+              return callback(err, getEmptyResultSet(q))
+            }
             var response = {};
             response.totalHits = frequencies.allDocsIDsInResultSet.length;
             response.totalDocsInIndex = frequencies.totalDocsInIndex;
@@ -65,7 +82,7 @@ var removeStopwordsFromQuery = function (qquery, stopwords) {
         var swops = {inputSeparator: '￮',
                      outputSeparator: '￮',
                      stopwords: stopwords};
-        qquery[i] = sw.removeStopwords(qquery[i].join('￮'), swops).split('￮');
+        qquery[i] = sw.removeStopwords(qquery[i].join('￮'), swops);
       }
     }
   }
@@ -85,10 +102,10 @@ var getSearchFieldQueryTokens = function (query) {
 };
 
 var sortFacet = function (facet, sortType) {
-  if (sortType == 'keyAsc') return _.sortBy(facet, 'key');
-  else if (sortType == 'keyDesc') return _.sortBy(facet, 'key').reverse();
-  else if (sortType == 'valueAsc') return _.sortBy(facet, 'value');
-  else return _.sortBy(facet, 'value').reverse();
+  if (sortType == 'keyAsc') return _sortBy(facet, 'key');
+  else if (sortType == 'keyDesc') return _sortBy(facet, 'key').reverse();
+  else if (sortType == 'valueAsc') return _sortBy(facet, 'value');
+  else return _sortBy(facet, 'value').reverse();
 };
 
 var getBucketedFacet = function (filter, facetRangeKeys, activeFilters, indexes, callbacky) {
@@ -122,7 +139,7 @@ var getBucketedFacet = function (filter, facetRangeKeys, activeFilters, indexes,
       }
       return b;
     });
-    result = _.compact(result);
+    result = _compact(result);
     //TODO: to return sets instead of totals- do something here.
     for (var i in result) {
       if (result.hasOwnProperty(i)) {
@@ -152,7 +169,7 @@ var getNonRangedFacet = function (totalQueryTokens, facetRangeKeys,
   }, function (err, result) {
     //intersect IDs for every query token to enable multi-word faceting
     if (result.length === 0) return callbacky([]);
-    _.sortBy(result, 'key').reduce(function (a, b, i, arr) {
+    _sortBy(result, 'key').reduce(function (a, b, i, arr) {
       if (a.key == b.key) {
         b.counter = (a.counter + 1);
         b.value = intersectionDestructive(a.value, b.value);
@@ -170,7 +187,7 @@ var getNonRangedFacet = function (totalQueryTokens, facetRangeKeys,
       delete result[result.length - 1];
     else if (result[result.length - 1].counter == totalQueryTokens)
       delete result[result.length - 1].counter;
-    result = _.compact(result);
+    result = _compact(result);
 
     //filter
     if (filterSet) {
@@ -181,7 +198,7 @@ var getNonRangedFacet = function (totalQueryTokens, facetRangeKeys,
           if (result[k].value.length === 0) delete result[k];
         }
       }
-      result = _.compact(result);
+      result = _compact(result);
     }
 
     for (var i in result) {
@@ -274,7 +291,7 @@ var getKeySet = function (q) {
   //generate keyset
   var keySet = [];
 
-  if (!_.isArray(q.query))
+  if (!Array.isArray(q.query))
     q.query = [q.query]
 
   q.query.forEach(function(or) {
@@ -320,7 +337,7 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
   //Check document frequencies
 
   // just do a DB lookup for each unique value
-  var keySetsUniq = _.uniqWith(_.flatten(keySets), _.isEqual)
+  var keySetsUniq = _uniqWith(_flatten(keySets), _isEqual)
   
   async.map(keySetsUniq, function (item, callback) {
     var uniq = [];
@@ -337,6 +354,11 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
       })
   }, function (asyncerr, results) {
     
+    if (!results[0]) {
+      //array is empty
+      return callback(asyncerr, [])
+    }
+
     var docFreqs = {}
     docFreqs.allDocsIDsInResultSet = []
     docFreqs.ORSets = []
@@ -372,14 +394,15 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
 
       // ANDing
       keySet.forEach(function(tf) {
-        set = set.concat(_.filter(results, function(o) {
-          return _.isEqual(o.key, tf)
+        set = set.concat(_filter(results, function(o) {
+          return _isEqual(o.key, tf)
         }).map(function(o) {return o.value}))
       })
 
       // do an intersection on AND values- token must be in all sets
+      
       var ORSet = set.reduce(function (prev, cur) {
-        return _.intersection(prev, cur);
+        return _intersection(prev, cur);
       })
 
       docFreqs.ORSets.push({
@@ -392,7 +415,7 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
         })
       })
 
-      docFreqs.allDocsIDsInResultSet = _.union(ORSet, docFreqs.allDocsIDsInResultSet)
+      docFreqs.allDocsIDsInResultSet = _union(ORSet, docFreqs.allDocsIDsInResultSet)
     })
 
     // do docFreqs for working out ranges and stuff
@@ -405,10 +428,10 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
       docFreqs.totalDocsInIndex = value
 
       //TODO: get inverse document frequencies here
-      _.each(docFreqs.df, function(val, key){
+      _forEach(docFreqs.df, function(val, key){
         docFreqs.idf[key] = Math.log10(1 + (docFreqs.totalDocsInIndex / val))
       })
-
+      
       return callback(err, docFreqs);
     });
   });
@@ -491,7 +514,7 @@ var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
               ORSet.ORSet = ORSet.ORSet.map(function(hit){
                 if (hit.id == thisID) {
                   ORSet.keySet.forEach(function(key) {
-                    if (_.isEqual(key, item[1])) {
+                    if (_isEqual(key, item[1])) {
                       // hit.tf.push(data.value[i]);
                       hit.tfidf.push([token,
                                       field,
@@ -523,16 +546,14 @@ var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
     var hits = []
     //TODO: weight results by field
 
-    hits = _(frequencies.ORSets).map(function(item) {
+    hits = _map(frequencies.ORSets, function(item) {
       return item.ORSet
     })
-      .flatten()
-      .groupBy(function(item) {
-        return item.id
-      })
-      .value()
-
-    hits = _.map(hits, function (val, key) {
+    hits = _flatten(hits)
+    hits = _groupBy(hits, function(item) {
+      return item.id
+    })
+    hits = _map(hits, function (val, key) {
       var hit = {}
       hit.id = key
       hit.score = 0
@@ -588,13 +609,7 @@ var glueDocs = function (hits, q, indexes, callbackX) {
 };
 
 
-
 var getOptions = function(givenOptions, callbacky) {
-  const _ = require('lodash')
-  const async = require('async')
-  const bunyan = require('bunyan')
-  const levelup = require('levelup')
-  const tv = require('term-vector')
   givenOptions = givenOptions || {}
   async.parallel([
     function(callback) {
@@ -605,8 +620,9 @@ var getOptions = function(givenOptions, callbacky) {
       defaultOps.indexPath = 'si'
       defaultOps.logLevel = 'error'
       defaultOps.nGramLength = 1
+      defaultOps.nGramSeparator = ' '
       defaultOps.separator = /[\|' \.,\-|(\n)]+/
-      defaultOps.stopwords = tv.getStopwords('en').sort()
+      defaultOps.stopwords = sw.getStopwords('en').sort()
       defaultOps.log = bunyan.createLogger({
         name: 'search-index',
         level: givenOptions.logLevel || defaultOps.logLevel
@@ -626,7 +642,7 @@ var getOptions = function(givenOptions, callbacky) {
       }
     }
   ], function(err, results){
-    var options = _.defaults(givenOptions, results[0])
+    var options = _defaults(givenOptions, results[0])
     if (results[1] != null) {
       options.indexes = results[1]
     }
