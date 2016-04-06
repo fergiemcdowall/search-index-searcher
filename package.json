@@ -42,5 +42,8 @@
     "search-context": "^0.1.0",
     "stopword": "0.0.6",
     "term-vector": "0.0.18"
+  },
+  "devDependencies": {
+    "standard": "^6.0.8"
   }
 }
