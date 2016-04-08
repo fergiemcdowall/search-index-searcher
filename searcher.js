@@ -1,5 +1,7 @@
 const _compact = require('lodash.compact')
 const _defaults = require('lodash.defaults')
+// TODO: consider compiling up a custom lodash lib
+
 const _filter = require('lodash.filter')
 const _flatten = require('lodash.flatten')
 const _forEach = require('lodash.foreach')
@@ -17,10 +19,14 @@ const scontext = require('search-context')
 const skeleton = require('log-skeleton')
 const sw = require('stopword')
 
+
+const _ = require('lodash')  // just for testing
+
 var queryDefaults = {
   maxFacetLimit: 100,
   offset: 0,
-  pageSize: 100
+  pageSize: 100,
+  categories: []
 }
 
 module.exports = function (givenOptions, callback) {
@@ -29,13 +35,15 @@ module.exports = function (givenOptions, callback) {
     var Searcher = {}
 
     Searcher.search = function (q, callback) {
+
+
       _defaults(q, queryDefaults)
-      q.query = removeStopwordsFromQuery(q.query, options.stopwords)
+      // q.query = removeStopwordsFromQuery(q.query, options.stopwords)
       var keySet = getKeySet(q)
       if (keySet.length === 0) return callback(getEmptyResultSet(q))
       log.info(JSON.stringify(q))
       getDocumentFreqencies(q, keySet, options.indexes, function (err, frequencies) {
-        // console.log(JSON.stringify(frequencies, null, 2))
+//        console.log(JSON.stringify(frequencies, null, 2))
         // improve returned resultset here:
         if (err) return callback(err, getEmptyResultSet(q))
         async.parallel([
@@ -45,8 +53,13 @@ module.exports = function (givenOptions, callback) {
             })
           },
           function (callback) {
-            getFacets(q, frequencies, options.indexes, function (facets) {
-              callback(null, facets)
+            getCategories(q, frequencies, options.indexes, function (err, categories) {
+              callback(err, categories)
+            })
+          },
+          function (callback) {
+            getBuckets(q, frequencies, options.indexes, function (err, buckets) {
+              callback(err, buckets)
             })
           }], function (err, results) {
           if (results[0].length === 0) {
@@ -57,8 +70,9 @@ module.exports = function (givenOptions, callback) {
           response.totalDocsInIndex = frequencies.totalDocsInIndex
           response.documentFrequencies = frequencies.df
           response.fieldWeight = frequencies.fieldWeight
-          response.query = q
-          response.facets = results[1]
+          response.query = q.query
+          response.buckets = results[2]
+          response.categories = results[1]
           response.hits = results[0]
           callback(err, response)
         })
@@ -68,203 +82,144 @@ module.exports = function (givenOptions, callback) {
   })
 }
 
-var removeStopwordsFromQuery = function (qquery, stopwords) {
-  for (var i in qquery) {
-    if (qquery.hasOwnProperty(i)) {
-      for (var k = 0; k < qquery[i].length; k++) {
-        var swops = {inputSeparator: '￮',
-          outputSeparator: '￮',
-        stopwords: stopwords}
-        qquery[i] = sw.removeStopwords(qquery[i].join('￮'), swops)
-      }
+
+var sort = function(sortKey) {
+  if (sortKey === 'keyAsc') {
+    return function(a, b) {
+      return a.key > b.key
     }
-  }
-  return qquery
-}
-
-var getSearchFieldQueryTokens = function (query) {
-  var searchFieldQueryTokens = []
-  for (var queryField in query) {
-    if (query.hasOwnProperty(queryField)) {
-      for (var i = 0; i < query[queryField].length; i++) {
-        searchFieldQueryTokens.push(queryField + '￮' + query[queryField][i])
-      }
+  } else if (sortKey === 'keyDesc') {
+    return function(a, b) {
+      return b.key > a.key
     }
+  } else if (sortKey === 'valueAsc') {
+    return function(a, b) {
+      return a.value - b.value
+    }
+  } else return function(a, b) {
+    return b.value - a.value
   }
-  return searchFieldQueryTokens
 }
 
-var sortFacet = function (facet, sortType) {
-  if (sortType === 'keyAsc') return _sortBy(facet, 'key')
-  else if (sortType === 'keyDesc') return _sortBy(facet, 'key').reverse()
-  else if (sortType === 'valueAsc') return _sortBy(facet, 'value')
-  else return _sortBy(facet, 'value').reverse()
-}
 
-var getBucketedFacet = function (filter, facetRangeKeys, activeFilters, indexes, callbacky) {
-  async.reduce(facetRangeKeys, [], function (memo, item, callback) {
-    var gte = item.start.split('￮')[4]
-    var lte = item.end.split('￮')[4]
-    var key = gte + '-' + lte
-    var thisSet = []
-    indexes.createReadStream({gte: item.start, lte: item.end})
-      .on('data', function (data) {
-        thisSet = thisSet.concat(data.value)
-      })
-      .on('end', function () {
-        var facetEntry = {key: key,
-          gte: gte,
-          lte: lte,
-        value: uniqFast(thisSet).sort()}
-        // for (var i = 0; i < activeFilters.length; i++) {
-        activeFilters.forEach(function (af) {
-          if ((af[0] === gte) && (af[1] === lte)) {
-            facetEntry.active = true
+var getCategories = function(q, frequencies, indexes, callback) {
+  var categories = {}
+  // this should be an async
+  async.eachSeries(frequencies.ORSets, function(ORSet, ORSetProcessed) {
+    // frequencies.ORSets.forEach(function(ORSet) {
+    var IDsInSet = ORSet.ORSet.map(function(item) {
+      return item.id
+    })
+    async.eachSeries(ORSet.keySet.AND, function(ANDKeys, ANDSetProcessed) {
+      indexes.createReadStream({gte: ANDKeys[0].slice(0,-1), lte: ANDKeys[1]})
+        .on('data', function (data) {
+          var dataKey = data.key.split('￮')
+          // is this a facet we are scanning for?
+          if (q.categories.map(function(item) {
+            return item.name
+          }).indexOf(dataKey[3]) != -1) {
+            var IDSet = _.intersection(data.value, IDsInSet)
+            if (IDSet.length > 0) {
+              categories[dataKey[3]] = categories[dataKey[3]] || {}
+              categories[dataKey[3]][dataKey[4]] 
+                = _.uniq((categories[dataKey[3]][dataKey[4]] || [])
+                         .concat(IDSet)).sort()
+            }
           }
         })
-        memo.push(facetEntry)
-        return callback(null, memo)
-      })
-  }, function (err, result) {
-    if (err) {}  // do something with the err?
-    // intersect IDs for every query token to enable multi-word faceting
-    result.reduce(function (a, b, i, arr) {
-      if (a.key === b.key) {
-        b.value = intersectionDestructive(a.value, b.value)
-        delete arr[i - 1]
-      }
-      return b
-    })
-    result = _compact(result)
-    // TODO: to return sets instead of totals- do something here.
-    for (var i in result) {
-      if (result.hasOwnProperty(i)) {
-        var filterClone = JSON.parse(JSON.stringify(filter))
-        result[i].value = intersectionDestructive(result[i].value, filterClone)
-        result[i].value = result[i].value.length
-      }
-    }
-    callbacky(result)
-  })
-}
-
-var getNonRangedFacet = function (totalQueryTokens, facetRangeKeys,
-  filterSet, filter, indexes, callbacky) {
-  async.reduce(facetRangeKeys, [], function (memo, item, callback) {
-    indexes.createReadStream({gte: item.start, lte: item.end})
-      .on('data', function (data) {
-        var thisKey = data.key.split('￮')[4]
-        memo.push({key: thisKey,
-          gte: thisKey,
-          lte: thisKey,
-        value: data.value})
-      })
-      .on('end', function () {
-        callback(null, memo)
-      })
-  }, function (err, result) {
-    if (err) {}  // do something with the err?
-    // intersect IDs for every query token to enable multi-word faceting
-    if (result.length === 0) return callbacky([])
-    _sortBy(result, 'key').reduce(function (a, b, i, arr) {
-      if (a.key === b.key) {
-        b.counter = (a.counter + 1)
-        b.value = intersectionDestructive(a.value, b.value)
-        delete arr[i - 1]
-      } else {
-        if (a.counter < totalQueryTokens) delete arr[i - 1]
-        if (a.value.length === 0) delete arr[i - 1]
-        delete a.counter
-        b.counter = 1
-      }
-      return b
-    })
-    if (result[result.length - 1].counter < totalQueryTokens) {
-      delete result[result.length - 1]
-    } else if (result[result.length - 1].counter === totalQueryTokens) {
-      delete result[result.length - 1].counter
-    }
-    result = _compact(result)
-
-    // filter
-    if (filterSet) {
-      for (var k in result) {
-        if (result.hasOwnProperty(k)) {
-          var f = filterSet.slice()
-          result[k].value = intersectionDestructive(result[k].value, f)
-          if (result[k].value.length === 0) delete result[k]
-        }
-      }
-      result = _compact(result)
-    }
-
-    for (var i in result) {
-      if (result.hasOwnProperty(i)) {
-        result[i].value = result[i].value.length
-        for (var j = 0; j < filter.length; j++) {
-          if ((filter[j][0] <= result[i].key) && (result[i].key <= filter[j][1])) {
-            result[i].active = true
-          }
-        }
-      }
-    }
-    callbacky(result)
-  })
-}
-
-var getFacets = function (q, frequencies, indexes, callbacky) {
-  if (!q.facets) return callbacky({})
-  var searchFieldQueryTokens = getSearchFieldQueryTokens(q.query[0])
-  async.map(Object.keys(q.facets), function (facetName, callback) {
-    var item = q.facets[facetName]
-    var facetRangeKeys = []
-    var ranges = item.ranges || [['', '']]
-    var limit = item.limit || queryDefaults.maxFacetLimit
-    var sortType = item.sort || 'valueDesc'
-    for (var i = 0; i < ranges.length; i++) {
-      for (var sfqt in searchFieldQueryTokens) {
-        if (searchFieldQueryTokens.hasOwnProperty(sfqt)) {
-          var range = {}
-          var prefix = 'TF￮' + searchFieldQueryTokens[sfqt] + '￮' + facetName + '￮'
-          range.start = prefix + ranges[i][0]
-          range.end = prefix + ranges[i][1] + '￮'
-          facetRangeKeys.push(range)
-        }
-      }
-    }
-    if (item.ranges) {
-      // set the filterSetKeys to the facet function, do an intersection to derive filters
-      var activeFilters = []
-      if (q.filter) if (q.filter[facetName]) activeFilters = q.filter[facetName]
-      getBucketedFacet(frequencies.allDocsIDsInResultSet,
-        facetRangeKeys,
-        activeFilters,
-        indexes,
-        function (facet) {
-          callback(null, {key: facetName,
-          value: sortFacet(facet, sortType).slice(0, limit)})
+        .on('end', function() {
+          return ANDSetProcessed(null)
         })
-    } else {
-      var filterValues = []
-      if (q.filter) filterValues = q.filter[facetName] || []
-      getNonRangedFacet(
-        searchFieldQueryTokens.length,
-        facetRangeKeys,
-        frequencies.allDocsIDsInResultSet,
-        filterValues,
-        indexes,
-        function (facet) {
-          callback(null, {
-            key: facetName,
-            value: sortFacet(facet, sortType).slice(0, limit)
+    }, function(err) {
+      ORSetProcessed(null)
+    })
+      }, function (err) {
+        //this should be moved up a level, so that all ORSets can be consolidated
+        categories = _.map(categories, function(categoryGroup, categoryName) {
+          //        console.log()
+          var arrayalizedCategoryGroup = []
+          for (var key in categoryGroup) {
+            arrayalizedCategoryGroup.push({
+              key: key,
+              value: categoryGroup[key].length
+            })
+          }
+          var sortKey = _.find(q.categories, ['name', categoryName]).sort || 'valueDesc'
+          var limit = _.find(q.categories, ['name', categoryName]).limit || 50
+          return {
+            key: categoryName,
+            value: arrayalizedCategoryGroup.sort(sort(sortKey)).slice(0, limit)
+          }
+        })
+        callback(err, categories)
+      })
+    }
+
+
+var getBuckets = function(q, frequencies, indexes, callback) {
+  var buckets = []
+  // this should be an async
+    // console.log(JSON.stringify(frequencies, null, 2))
+
+  async.eachSeries(frequencies.ORSets, function(ORSet, ORSetProcessed) {
+    var IDsInSet = ORSet.ORSet.map(function(item) {
+      return item.id
+    })
+    async.eachSeries(ORSet.keySet.AND, function(ANDKeys, ANDSetProcessed) {
+
+      async.eachSeries(q.buckets, function(bucket, bucketProcessed) {
+
+        var fieldName = ANDKeys[0].split('￮')[1]
+        var token = ANDKeys[0].split('￮')[2]
+        
+        // var gte = ANDKeys[0].slice(0, -1)
+        var gte = 'TF￮' + fieldName + '￮' + token + '￮'
+          + bucket.field + '￮'
+          + bucket.gte        
+        var lte = 'TF￮' + fieldName + '￮' + token + '￮'
+          + bucket.field + '￮'
+          + bucket.lte + '￮'
+        var thisBucket = _.find(buckets, bucket) || bucket
+
+// TODO: add some logic to see if keys are within ranges before doing a lookup
+
+        indexes.createReadStream({gte: gte, lte: lte})
+          .on('data', function (data) {
+            var IDSet = _.intersection(data.value, IDsInSet)            
+            if (IDSet.length > 0) {
+              thisBucket.IDSet = thisBucket.IDSet || []
+              thisBucket.IDSet = _.uniq(thisBucket.IDSet.concat(IDSet))
+            }
           })
-        })
-    }
-  }, function (err, result) {
-    if (err) {} // handle err?
-    callbacky(result)
+          .on('close', function() {
+            buckets.push(thisBucket)
+            buckets = _.uniqWith(buckets, _.isEqual)
+            return bucketProcessed(null)
+          })
+      }, function (err) {
+        ANDSetProcessed()
+      })
+        
+    }, function(err) {
+      ORSetProcessed(null)
+    })
+  }, function (err) {
+    buckets.map(function (bucket) {
+      if (!bucket.IDSet) {
+        bucket.count = 0
+      }
+      else {
+        bucket.count = bucket.IDSet.length
+      }
+      delete bucket.IDSet
+      return bucket
+    })
+    callback(err, buckets)
   })
 }
+
+
+
 
 // supposedly fastest way to get unique values in an array
 // http://stackoverflow.com/questions/9229645/remove-duplicates-from-javascript-array
@@ -291,30 +246,38 @@ var getKeySet = function (q) {
     q.query = [q.query]
   }
   q.query.forEach(function (or) {
-    keySet.push([])
-    for (var queryField in or) {
-      if (or.hasOwnProperty(queryField)) {
-        for (var j = 0; j < or[queryField].length; j++) {
-          if (q.filter) {
-            for (var k in q.filter) {
-              if (q.filter.hasOwnProperty(k)) {
-                for (var i = 0; i < q.filter[k].length; i++) {
-                  keySet[keySet.length - 1].push(
-                    ['TF￮' + queryField + '￮' + or[queryField][j] +
-                    '￮' + k + '￮' + q.filter[k][i][0],
-                      'TF￮' + queryField + '￮' + or[queryField][j] +
-                      '￮' + k + '￮' + q.filter[k][i][1]])
-                }
-              }
-            }
-          } else {
-            keySet[keySet.length - 1].push(
-              ['TF￮' + queryField + '￮' + or[queryField][j] + '￮￮',
-                'TF￮' + queryField + '￮' + or[queryField][j] + '￮￮￮'])
-          }
-        }
+    var orKeySet = {}
+    orKeySet.AND = []
+    orKeySet.NOT = []
+    // AND condtions
+
+    ;['AND', 'NOT'].forEach(function (bool) {
+      if (!Array.isArray(or[bool])) {
+        or[bool] = [or[bool]]
       }
-    }
+      or[bool].forEach(function(set) {
+        for (fieldName in set) {
+          set[fieldName].forEach(function(token) {
+            // orKeySet[bool].push('TF' + '￮' + fieldName + '￮' + token + '￮￮')
+            if (q.filter && Array.isArray(q.filter)) {
+              // Filters: TODO
+              q.filter.forEach(function(filter) {
+                orKeySet[bool].push([
+                  'TF￮' + fieldName + '￮' + token + '￮' + filter.field + '￮' + filter.gte,
+                  'TF￮' + fieldName + '￮' + token + '￮' + filter.field + '￮' + filter.lte + '￮'
+                ])
+              })
+            } else {
+              orKeySet[bool].push([
+                'TF￮' + fieldName + '￮' + token + '￮￮',
+                'TF￮' + fieldName + '￮' + token + '￮￮￮'
+              ])
+            }
+          })
+        }
+      })
+    })
+    keySet.push(orKeySet)
   })
   return keySet
 }
@@ -330,9 +293,10 @@ var getEmptyResultSet = function (q) {
 
 var getDocumentFreqencies = function (q, keySets, indexes, callback) {
   // Check document frequencies
-
-  // just do a DB lookup for each unique value
-  var keySetsUniq = _uniqWith(_flatten(keySets), _isEqual)
+  var keySetsUniq = keySets.map(function (set) {
+    return set.AND.concat(set.NOT)
+  })
+  keySetsUniq = _uniqWith(_flatten(keySetsUniq), _isEqual)
 
   async.map(keySetsUniq, function (item, callback) {
     var uniq = []
@@ -363,6 +327,7 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
     docFreqs.docFreqs = []
 
     // get document frequencies
+
     results.forEach(function (item) {
       var dfToken = item.key[1].split('￮')[1] + '￮' + item.key[1].split('￮')[2]
       var dfValue = item.value.length
@@ -383,26 +348,49 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
     keySets.forEach(function (keySet) {
       // console.log(keySet)
       // for each AND
-      var set = []
+      var ANDset = []
 
       // ANDing
-      keySet.forEach(function (tf) {
-        set = set.concat(_filter(results, function (o) {
+      // keySet.forEach(function (tf) {
+      keySet.AND.forEach(function (tf) {
+        ANDset = ANDset.concat(_filter(results, function (o) {
           return _isEqual(o.key, tf)
         }).map(function (o) {
           return o.value
         }))
       })
 
-      // do an intersection on AND values- token must be in all sets
+      // TODO: NOTing
+      var NOTset = []
 
-      var ORSet = set.reduce(function (prev, cur) {
-        return _intersection(prev, cur)
+      // ANDing
+      // keySet.forEach(function (tf) {
+      keySet.NOT.forEach(function (tf) {
+        NOTset = NOTset.concat(_filter(results, function (o) {
+          return _isEqual(o.key, tf)
+        }).map(function (o) {
+          return o.value
+        }))
       })
 
-      // TODO: NOTing
 
-      console.log(ORSet)
+      // do an intersection on AND values- token must be in all sets
+      if (ANDset.length > 0) {
+        ANDset = ANDset.reduce(function (prev, cur) {
+          return _intersection(prev, cur)
+        })
+      }
+      // do an intersection on NOT values- token must be in all sets
+      if (NOTset.length > 0) {
+        NOTset = NOTset.reduce(function (prev, cur) {
+          return _intersection(prev, cur)
+        })
+      }
+
+      //take away NOTSet from ANDSet
+      //ORSet one set of OR conditions
+      var ORSet = _.difference(ANDset, NOTset)
+
 
       docFreqs.ORSets.push({
         keySet: keySet,
@@ -503,7 +491,7 @@ var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
             frequencies.ORSets = frequencies.ORSets.map(function (ORSet) {
               ORSet.ORSet = ORSet.ORSet.map(function (hit) {
                 if (hit.id === thisID) {
-                  ORSet.keySet.forEach(function (key) {
+                  ORSet.keySet.AND.forEach(function (key) {
                     if (_isEqual(key, item[1])) {
                       // hit.tf.push(data.value[i])
                       hit.tfidf.push([token,
