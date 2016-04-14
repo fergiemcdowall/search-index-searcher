@@ -43,7 +43,6 @@ module.exports = function (givenOptions, callback) {
       if (keySet.length === 0) return callback(getEmptyResultSet(q))
       log.info(JSON.stringify(q))
       getDocumentFreqencies(q, keySet, options.indexes, function (err, frequencies) {
-//        console.log(JSON.stringify(frequencies, null, 2))
         // improve returned resultset here:
         if (err) return callback(err, getEmptyResultSet(q))
         async.parallel([
@@ -66,6 +65,9 @@ module.exports = function (givenOptions, callback) {
             return callback(err, getEmptyResultSet(q))
           }
           var response = {}
+
+            //TODO: if any of these are empty- remove them
+
           response.totalHits = frequencies.allDocsIDsInResultSet.length
           response.totalDocsInIndex = frequencies.totalDocsInIndex
           response.documentFrequencies = frequencies.df
@@ -82,85 +84,89 @@ module.exports = function (givenOptions, callback) {
   })
 }
 
+var getCategories = function (q, frequencies, indexes, callback) {
+  // 1. scan docfreqs, determine least frequent pair in this andSet
+  // 2. scan every df key for that filter name and do an
+  // intersection to get filters per q.filter, per ORSet
+  // 3. munge the ORSets together
 
-var sort = function(sortKey) {
-  if (sortKey === 'keyAsc') {
-    return function(a, b) {
-      return a.key > b.key
-    }
-  } else if (sortKey === 'keyDesc') {
-    return function(a, b) {
-      return b.key > a.key
-    }
-  } else if (sortKey === 'valueAsc') {
-    return function(a, b) {
-      return a.value - b.value
-    }
-  } else return function(a, b) {
-    return b.value - a.value
-  }
-}
-
-
-var getCategories = function(q, frequencies, indexes, callback) {
-  var categories = {}
-  // this should be an async
-  async.eachSeries(frequencies.ORSets, function(ORSet, ORSetProcessed) {
-    // frequencies.ORSets.forEach(function(ORSet) {
-    var IDsInSet = ORSet.ORSet.map(function(item) {
-      return item.id
-    })
-    async.eachSeries(ORSet.keySet.AND, function(ANDKeys, ANDSetProcessed) {
-      indexes.createReadStream({gte: ANDKeys[0].slice(0,-1), lte: ANDKeys[1]})
+  var categories = []
+  async.eachSeries(q.categories, function(category, categoryProcessed) {
+    var categoriesForORSet = []
+    async.eachSeries(frequencies.ORSets, function(ORSet, ORSetProcessed) {
+      var IDsInSet = ORSet.ORSet.map(function(item) {
+        return item.id
+      })
+      var gte = ORSet.leastFrequent.key[0].split('￮')
+        .slice(0, 3).join('￮') + '￮' + category.name
+      var lte = ORSet.leastFrequent.key[1].split('￮')
+        .slice(0, 3).join('￮') + '￮' + category.name + '￮￮'
+      var thisCategory = {key: category.name, value: []}
+      indexes.createReadStream({gte: gte, lte: lte})
         .on('data', function (data) {
-          var dataKey = data.key.split('￮')
-          // is this a facet we are scanning for?
-          if (q.categories.map(function(item) {
-            return item.name
-          }).indexOf(dataKey[3]) != -1) {
-            var IDSet = _.intersection(data.value, IDsInSet)
-            if (IDSet.length > 0) {
-              categories[dataKey[3]] = categories[dataKey[3]] || {}
-              categories[dataKey[3]][dataKey[4]] 
-                = _.uniq((categories[dataKey[3]][dataKey[4]] || [])
-                         .concat(IDSet)).sort()
-            }
-          }
-        })
-        .on('end', function() {
-          return ANDSetProcessed(null)
-        })
-    }, function(err) {
-      ORSetProcessed(null)
-    })
-      }, function (err) {
-        //this should be moved up a level, so that all ORSets can be consolidated
-        categories = _.map(categories, function(categoryGroup, categoryName) {
-          //        console.log()
-          var arrayalizedCategoryGroup = []
-          for (var key in categoryGroup) {
-            arrayalizedCategoryGroup.push({
-              key: key,
-              value: categoryGroup[key].length
+          var categoryPropertyValue = data.key.split('￮')[4]
+          var categorySet = _.intersection(data.value, IDsInSet)
+          // TODO: possibly allow for 0 values?
+          if (categorySet.length > 0) {
+            thisCategory.value.push({
+              key: categoryPropertyValue,
+              value: categorySet
             })
           }
-          var sortKey = _.find(q.categories, ['name', categoryName]).sort || 'valueDesc'
-          var limit = _.find(q.categories, ['name', categoryName]).limit || 50
-          return {
-            key: categoryName,
-            value: arrayalizedCategoryGroup.sort(sort(sortKey)).slice(0, limit)
-          }
         })
-        callback(err, categories)
+        .on('end', function () {
+          categoriesForORSet.push(thisCategory)
+          ORSetProcessed(null)
+        })
+    }, function(err) {
+      var mungedCategory = {}
+      mungedCategory.key = category.name
+      mungedCategory.value = []
+      _.flatten(categoriesForORSet.map(function(item) {
+        return item.value
+      })).forEach(function(item) {
+        var i = _.findIndex(mungedCategory.value, {key: item.key})
+        if (i == -1) {
+          mungedCategory.value.push(item)
+        }
+        else {
+          mungedCategory.value[i].value = 
+            _.union(mungedCategory.value[i].value, item.value)
+        }
       })
-    }
 
+      var sortKey = category.sort || 'valueDesc'
+      var limit = category.limit || 50
+
+      mungedCategory.value.map(function(item) {
+        item.value = item.value.length
+        if (q.filter) {
+          q.filter.forEach(function(qFilter) {
+            if (qFilter.field == mungedCategory.key) {
+              if ((qFilter.gte >= item.key) && (item.key >= qFilter.lte)) {
+                item.active = true
+              }
+            }
+          })
+        }
+
+        return item
+      })
+      
+      mungedCategory.value = mungedCategory.value.sort(sort(sortKey))
+      mungedCategory.value = mungedCategory.value.slice(0, limit)
+
+      categories.push(mungedCategory)
+      categoryProcessed(err)
+    })
+  }, function(err) {
+    callback(null, categories)
+  })
+
+}
 
 var getBuckets = function(q, frequencies, indexes, callback) {
   var buckets = []
-  // this should be an async
-    // console.log(JSON.stringify(frequencies, null, 2))
-
   async.eachSeries(frequencies.ORSets, function(ORSet, ORSetProcessed) {
     var IDsInSet = ORSet.ORSet.map(function(item) {
       return item.id
@@ -346,12 +352,21 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
 
     // for each OR
     keySets.forEach(function (keySet) {
+
+      // determine which keys return the smallest result set
+      var leastFrequentKeys = _.minBy(results.map(function (item) {
+        if (keySet.AND.indexOf(item.key) != -1)
+          return item
+      }), function(item) {
+        if (item)
+          return item.value.length
+      })
+
       // console.log(keySet)
       // for each AND
       var ANDset = []
-
+      
       // ANDing
-      // keySet.forEach(function (tf) {
       keySet.AND.forEach(function (tf) {
         ANDset = ANDset.concat(_filter(results, function (o) {
           return _isEqual(o.key, tf)
@@ -359,8 +374,7 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
           return o.value
         }))
       })
-
-      // TODO: NOTing
+        
       var NOTset = []
 
       // ANDing
@@ -391,9 +405,9 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
       //ORSet one set of OR conditions
       var ORSet = _.difference(ANDset, NOTset)
 
-
       docFreqs.ORSets.push({
         keySet: keySet,
+        leastFrequent: leastFrequentKeys,
         ORSet: ORSet.map(function (item) {
           return {
             id: item,
@@ -423,20 +437,6 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
   })
 }
 
-function intersectionDestructive (a, b) {
-  var result = []
-  while (a.length > 0 && b.length > 0) {
-    if (a[0] < b[0]) {
-      a.shift()
-    } else if (a[0] > b[0]) {
-      b.shift()
-    } else /* they're equal */ {
-      result.push(a.shift())
-      b.shift()
-    }
-  }
-  return result
-}
 
 var getResults = function (q, frequencies, keySet, indexes, callback) {
   if (q.sort) {
@@ -516,6 +516,7 @@ var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
         return callbacker(null, hits)
       })
   }, function (err, result) {
+
     // Safe OR results are now in frequencies.ORSets so this should now
     // be edited to read form frequencies.ORSets
 
@@ -526,10 +527,15 @@ var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
     hits = _map(frequencies.ORSets, function (item) {
       return item.ORSet
     })
+
+
     hits = _flatten(hits)
     hits = _groupBy(hits, function (item) {
       return item.id
     })
+
+
+
     hits = _map(hits, function (val, key) {
       var hit = {}
       hit.id = key
@@ -555,6 +561,7 @@ var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
     })
 
     hits = hits.slice((+q.offset), (+q.offset) + (+q.pageSize))
+
     glueDocs(hits, q, indexes, function (result) {
       return callbackX(err, result)
     })
@@ -565,15 +572,30 @@ var glueDocs = function (hits, q, indexes, callbackX) {
   async.mapSeries(hits, function (item, callback) {
     indexes.get('DOCUMENT￮' + item.id + '￮', function (err, value) {
       item.document = value
-      var terms = q.query[0]['*']
-      if (q.query[0][q.teaser]) {
-        terms = q.query[0][q.teaser] // this is a nasty hack- remove the [0]
-      }
+      // var terms = q.query[0]['*']
+      // if (q.query[0][q.teaser]) {
+      //   terms = q.query[0][q.teaser] // this is a nasty hack- remove the [0]
+      // }
       if (q.teaser && item.document[q.teaser]) {
+
+        var teaserTerms = []
+        q.query.forEach(function(item) {
+          item.AND.forEach(function (ANDitem) {
+            if (ANDitem[q.teaser]) {
+              teaserTerms = teaserTerms.concat(ANDitem[q.teaser])
+            }
+            if (ANDitem['*']) {
+              teaserTerms = teaserTerms.concat(ANDitem['*'])
+            }
+          })
+        })
+
+        debugger;
+
         try {
           item.document.teaser = scontext(
             item.document[q.teaser],
-            terms,
+            teaserTerms,
             400,
             function hi (string) {
               return '<span class="sc-em">' + string + '</span>'
