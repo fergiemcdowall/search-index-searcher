@@ -1,4 +1,3 @@
-const _compact = require('lodash.compact')
 const _defaults = require('lodash.defaults')
 // TODO: consider compiling up a custom lodash lib
 
@@ -9,7 +8,6 @@ const _groupBy = require('lodash.groupby')
 const _intersection = require('lodash.intersection')
 const _isEqual = require('lodash.isequal')
 const _map = require('lodash.map')
-const _sortBy = require('lodash.sortby')
 const _union = require('lodash.union')
 const _uniqWith = require('lodash.uniqwith')
 const async = require('async')
@@ -19,8 +17,7 @@ const scontext = require('search-context')
 const skeleton = require('log-skeleton')
 const sw = require('stopword')
 
-
-const _ = require('lodash')  // just for testing
+const _ = require('lodash') // just for testing
 
 var queryDefaults = {
   maxFacetLimit: 100,
@@ -35,8 +32,6 @@ module.exports = function (givenOptions, callback) {
     var Searcher = {}
 
     Searcher.search = function (q, callback) {
-
-
       _defaults(q, queryDefaults)
       // q.query = removeStopwordsFromQuery(q.query, options.stopwords)
       var keySet = getKeySet(q)
@@ -66,7 +61,7 @@ module.exports = function (givenOptions, callback) {
           }
           var response = {}
 
-            //TODO: if any of these are empty- remove them
+          // TODO: if any of these are empty- remove them
 
           response.totalHits = frequencies.allDocsIDsInResultSet.length
           response.totalDocsInIndex = frequencies.totalDocsInIndex
@@ -84,6 +79,39 @@ module.exports = function (givenOptions, callback) {
   })
 }
 
+var sort = function (sortName) {
+  if (sortName === 'keyAsc') {
+    return function (a, b) {
+      if (a.key > b.key) return 1
+      if (a.key < b.key) return -1
+      return 0
+    }
+  } else if (sortName === 'keyDesc') {
+    return function (a, b) {
+      if (a.key > b.key) return -1
+      if (a.key < b.key) return 1
+      return 0
+    }
+  } else if (sortName === 'valueAsc') {
+    return function (a, b) {
+      if ((a.value - b.value) < 0) return -1
+      if ((a.value - b.value) > 0) return 1
+      if (a.key > b.key) return 1
+      if (a.key < b.key) return -1
+      return 0
+    }
+  } else {
+    // default is 'valueDesc'
+    return function (a, b) {
+      if ((a.value - b.value) < 0) return 1
+      if ((a.value - b.value) > 0) return -1
+      if (a.key > b.key) return 1
+      if (a.key < b.key) return -1
+      return 0
+    }
+  }
+}
+
 var getCategories = function (q, frequencies, indexes, callback) {
   // 1. scan docfreqs, determine least frequent pair in this andSet
   // 2. scan every df key for that filter name and do an
@@ -91,16 +119,16 @@ var getCategories = function (q, frequencies, indexes, callback) {
   // 3. munge the ORSets together
 
   var categories = []
-  async.eachSeries(q.categories, function(category, categoryProcessed) {
+  async.eachSeries(q.categories, function (category, categoryProcessed) {
     var categoriesForORSet = []
-    async.eachSeries(frequencies.ORSets, function(ORSet, ORSetProcessed) {
-      var IDsInSet = ORSet.ORSet.map(function(item) {
+    async.eachSeries(frequencies.ORSets, function (ORSet, ORSetProcessed) {
+      var IDsInSet = ORSet.ORSet.map(function (item) {
         return item.id
       })
       var gte = ORSet.leastFrequent.key[0].split('￮')
         .slice(0, 3).join('￮') + '￮' + category.name
       var lte = ORSet.leastFrequent.key[1].split('￮')
-        .slice(0, 3).join('￮') + '￮' + category.name + '￮￮'
+          .slice(0, 3).join('￮') + '￮' + category.name + '￮￮'
       var thisCategory = {key: category.name, value: []}
       indexes.createReadStream({gte: gte, lte: lte})
         .on('data', function (data) {
@@ -118,19 +146,18 @@ var getCategories = function (q, frequencies, indexes, callback) {
           categoriesForORSet.push(thisCategory)
           ORSetProcessed(null)
         })
-    }, function(err) {
+    }, function (err) {
       var mungedCategory = {}
       mungedCategory.key = category.name
       mungedCategory.value = []
-      _.flatten(categoriesForORSet.map(function(item) {
+      _.flatten(categoriesForORSet.map(function (item) {
         return item.value
-      })).forEach(function(item) {
+      })).forEach(function (item) {
         var i = _.findIndex(mungedCategory.value, {key: item.key})
-        if (i == -1) {
+        if (i === -1) {
           mungedCategory.value.push(item)
-        }
-        else {
-          mungedCategory.value[i].value = 
+        } else {
+          mungedCategory.value[i].value =
             _.union(mungedCategory.value[i].value, item.value)
         }
       })
@@ -138,11 +165,11 @@ var getCategories = function (q, frequencies, indexes, callback) {
       var sortKey = category.sort || 'valueDesc'
       var limit = category.limit || 50
 
-      mungedCategory.value.map(function(item) {
+      mungedCategory.value.map(function (item) {
         item.value = item.value.length
         if (q.filter) {
-          q.filter.forEach(function(qFilter) {
-            if (qFilter.field == mungedCategory.key) {
+          q.filter.forEach(function (qFilter) {
+            if (qFilter.field === mungedCategory.key) {
               if ((qFilter.gte >= item.key) && (item.key >= qFilter.lte)) {
                 item.active = true
               }
@@ -152,69 +179,66 @@ var getCategories = function (q, frequencies, indexes, callback) {
 
         return item
       })
-      
-      mungedCategory.value = mungedCategory.value.sort(sort(sortKey))
+
+      mungedCategory.value = mungedCategory.value.sort(
+        sort(sortKey)
+      )
       mungedCategory.value = mungedCategory.value.slice(0, limit)
 
       categories.push(mungedCategory)
       categoryProcessed(err)
     })
-  }, function(err) {
-    callback(null, categories)
+  }, function (err) {
+    callback(err, categories)
   })
-
 }
 
-var getBuckets = function(q, frequencies, indexes, callback) {
+var getBuckets = function (q, frequencies, indexes, callback) {
   var buckets = []
-  async.eachSeries(frequencies.ORSets, function(ORSet, ORSetProcessed) {
-    var IDsInSet = ORSet.ORSet.map(function(item) {
+  async.eachSeries(frequencies.ORSets, function (ORSet, ORSetProcessed) {
+    var IDsInSet = ORSet.ORSet.map(function (item) {
       return item.id
     })
-    async.eachSeries(ORSet.keySet.AND, function(ANDKeys, ANDSetProcessed) {
-
-      async.eachSeries(q.buckets, function(bucket, bucketProcessed) {
-
+    async.eachSeries(ORSet.keySet.AND, function (ANDKeys, ANDSetProcessed) {
+      async.eachSeries(q.buckets, function (bucket, bucketProcessed) {
         var fieldName = ANDKeys[0].split('￮')[1]
         var token = ANDKeys[0].split('￮')[2]
-        
+
         // var gte = ANDKeys[0].slice(0, -1)
-        var gte = 'TF￮' + fieldName + '￮' + token + '￮'
-          + bucket.field + '￮'
-          + bucket.gte        
-        var lte = 'TF￮' + fieldName + '￮' + token + '￮'
-          + bucket.field + '￮'
-          + bucket.lte + '￮'
+        var gte = 'TF￮' + fieldName + '￮' + token + '￮' +
+          bucket.field + '￮' +
+          bucket.gte
+        var lte = 'TF￮' + fieldName + '￮' + token + '￮' +
+          bucket.field + '￮' +
+          bucket.lte + '￮'
         var thisBucket = _.find(buckets, bucket) || bucket
 
-// TODO: add some logic to see if keys are within ranges before doing a lookup
+        // TODO: add some logic to see if keys are within ranges before doing a lookup
 
         indexes.createReadStream({gte: gte, lte: lte})
           .on('data', function (data) {
-            var IDSet = _.intersection(data.value, IDsInSet)            
+            var IDSet = _.intersection(data.value, IDsInSet)
             if (IDSet.length > 0) {
               thisBucket.IDSet = thisBucket.IDSet || []
               thisBucket.IDSet = _.uniq(thisBucket.IDSet.concat(IDSet))
             }
           })
-          .on('close', function() {
+          .on('close', function () {
             buckets.push(thisBucket)
             buckets = _.uniqWith(buckets, _.isEqual)
             return bucketProcessed(null)
           })
       }, function (err) {
-        ANDSetProcessed()
+        ANDSetProcessed(err)
       })
-        
-    }, function(err) {
-      ORSetProcessed(null)
+    }, function (err) {
+      ORSetProcessed(err)
     })
   }, function (err) {
     buckets.map(function (bucket) {
       if (!bucket.IDSet) {
         bucket.count = 0
-      }
-      else {
+      } else {
         bucket.count = bucket.IDSet.length
       }
       delete bucket.IDSet
@@ -223,9 +247,6 @@ var getBuckets = function(q, frequencies, indexes, callback) {
     callback(err, buckets)
   })
 }
-
-
-
 
 // supposedly fastest way to get unique values in an array
 // http://stackoverflow.com/questions/9229645/remove-duplicates-from-javascript-array
@@ -261,13 +282,13 @@ var getKeySet = function (q) {
       if (!Array.isArray(or[bool])) {
         or[bool] = [or[bool]]
       }
-      or[bool].forEach(function(set) {
-        for (fieldName in set) {
-          set[fieldName].forEach(function(token) {
+      or[bool].forEach(function (set) {
+        for (var fieldName in set) {
+          set[fieldName].forEach(function (token) {
             // orKeySet[bool].push('TF' + '￮' + fieldName + '￮' + token + '￮￮')
             if (q.filter && Array.isArray(q.filter)) {
               // Filters: TODO
-              q.filter.forEach(function(filter) {
+              q.filter.forEach(function (filter) {
                 orKeySet[bool].push([
                   'TF￮' + fieldName + '￮' + token + '￮' + filter.field + '￮' + filter.gte,
                   'TF￮' + fieldName + '￮' + token + '￮' + filter.field + '￮' + filter.lte + '￮'
@@ -352,20 +373,21 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
 
     // for each OR
     keySets.forEach(function (keySet) {
-
       // determine which keys return the smallest result set
       var leastFrequentKeys = _.minBy(results.map(function (item) {
-        if (keySet.AND.indexOf(item.key) != -1)
+        if (keySet.AND.indexOf(item.key) !== -1) {
           return item
-      }), function(item) {
-        if (item)
+        }
+      }), function (item) {
+        if (item) {
           return item.value.length
+        }
       })
 
       // console.log(keySet)
       // for each AND
       var ANDset = []
-      
+
       // ANDing
       keySet.AND.forEach(function (tf) {
         ANDset = ANDset.concat(_filter(results, function (o) {
@@ -374,7 +396,7 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
           return o.value
         }))
       })
-        
+
       var NOTset = []
 
       // ANDing
@@ -386,7 +408,6 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
           return o.value
         }))
       })
-
 
       // do an intersection on AND values- token must be in all sets
       if (ANDset.length > 0) {
@@ -401,8 +422,8 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
         })
       }
 
-      //take away NOTSet from ANDSet
-      //ORSet one set of OR conditions
+      // take away NOTSet from ANDSet
+      // ORSet one set of OR conditions
       var ORSet = _.difference(ANDset, NOTset)
 
       docFreqs.ORSets.push({
@@ -436,7 +457,6 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
     })
   })
 }
-
 
 var getResults = function (q, frequencies, keySet, indexes, callback) {
   if (q.sort) {
@@ -516,7 +536,6 @@ var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
         return callbacker(null, hits)
       })
   }, function (err, result) {
-
     // Safe OR results are now in frequencies.ORSets so this should now
     // be edited to read form frequencies.ORSets
 
@@ -528,13 +547,10 @@ var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
       return item.ORSet
     })
 
-
     hits = _flatten(hits)
     hits = _groupBy(hits, function (item) {
       return item.id
     })
-
-
 
     hits = _map(hits, function (val, key) {
       var hit = {}
@@ -577,9 +593,8 @@ var glueDocs = function (hits, q, indexes, callbackX) {
       //   terms = q.query[0][q.teaser] // this is a nasty hack- remove the [0]
       // }
       if (q.teaser && item.document[q.teaser]) {
-
         var teaserTerms = []
-        q.query.forEach(function(item) {
+        q.query.forEach(function (item) {
           item.AND.forEach(function (ANDitem) {
             if (ANDitem[q.teaser]) {
               teaserTerms = teaserTerms.concat(ANDitem[q.teaser])
@@ -589,8 +604,6 @@ var glueDocs = function (hits, q, indexes, callbackX) {
             }
           })
         })
-
-        debugger;
 
         try {
           item.document.teaser = scontext(
