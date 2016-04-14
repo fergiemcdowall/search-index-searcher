@@ -1,14 +1,19 @@
 const _defaults = require('lodash.defaults')
 // TODO: consider compiling up a custom lodash lib
 
+const _difference = require('lodash.difference')
 const _filter = require('lodash.filter')
+const _find = require('lodash.find')
+const _findIndex = require('lodash.findindex')
 const _flatten = require('lodash.flatten')
 const _forEach = require('lodash.foreach')
 const _groupBy = require('lodash.groupby')
 const _intersection = require('lodash.intersection')
 const _isEqual = require('lodash.isequal')
 const _map = require('lodash.map')
+const _minBy = require('lodash.minby')
 const _union = require('lodash.union')
+const _uniq = require('lodash.uniq')
 const _uniqWith = require('lodash.uniqwith')
 const async = require('async')
 const bunyan = require('bunyan')
@@ -17,7 +22,7 @@ const scontext = require('search-context')
 const skeleton = require('log-skeleton')
 const sw = require('stopword')
 
-const _ = require('lodash') // just for testing
+// const _ = require('lodash') // just for testing
 
 var queryDefaults = {
   maxFacetLimit: 100,
@@ -133,7 +138,7 @@ var getCategories = function (q, frequencies, indexes, callback) {
       indexes.createReadStream({gte: gte, lte: lte})
         .on('data', function (data) {
           var categoryPropertyValue = data.key.split('￮')[4]
-          var categorySet = _.intersection(data.value, IDsInSet)
+          var categorySet = _intersection(data.value, IDsInSet)
           // TODO: possibly allow for 0 values?
           if (categorySet.length > 0) {
             thisCategory.value.push({
@@ -150,15 +155,15 @@ var getCategories = function (q, frequencies, indexes, callback) {
       var mungedCategory = {}
       mungedCategory.key = category.name
       mungedCategory.value = []
-      _.flatten(categoriesForORSet.map(function (item) {
+      _flatten(categoriesForORSet.map(function (item) {
         return item.value
       })).forEach(function (item) {
-        var i = _.findIndex(mungedCategory.value, {key: item.key})
+        var i = _findIndex(mungedCategory.value, {key: item.key})
         if (i === -1) {
           mungedCategory.value.push(item)
         } else {
           mungedCategory.value[i].value =
-            _.union(mungedCategory.value[i].value, item.value)
+            _union(mungedCategory.value[i].value, item.value)
         }
       })
 
@@ -211,21 +216,21 @@ var getBuckets = function (q, frequencies, indexes, callback) {
         var lte = 'TF￮' + fieldName + '￮' + token + '￮' +
           bucket.field + '￮' +
           bucket.lte + '￮'
-        var thisBucket = _.find(buckets, bucket) || bucket
+        var thisBucket = _find(buckets, bucket) || bucket
 
         // TODO: add some logic to see if keys are within ranges before doing a lookup
 
         indexes.createReadStream({gte: gte, lte: lte})
           .on('data', function (data) {
-            var IDSet = _.intersection(data.value, IDsInSet)
+            var IDSet = _intersection(data.value, IDsInSet)
             if (IDSet.length > 0) {
               thisBucket.IDSet = thisBucket.IDSet || []
-              thisBucket.IDSet = _.uniq(thisBucket.IDSet.concat(IDSet))
+              thisBucket.IDSet = _uniq(thisBucket.IDSet.concat(IDSet))
             }
           })
           .on('close', function () {
             buckets.push(thisBucket)
-            buckets = _.uniqWith(buckets, _.isEqual)
+            buckets = _uniqWith(buckets, _isEqual)
             return bucketProcessed(null)
           })
       }, function (err) {
@@ -374,7 +379,7 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
     // for each OR
     keySets.forEach(function (keySet) {
       // determine which keys return the smallest result set
-      var leastFrequentKeys = _.minBy(results.map(function (item) {
+      var leastFrequentKeys = _minBy(results.map(function (item) {
         if (keySet.AND.indexOf(item.key) !== -1) {
           return item
         }
@@ -424,7 +429,7 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
 
       // take away NOTSet from ANDSet
       // ORSet one set of OR conditions
-      var ORSet = _.difference(ANDset, NOTset)
+      var ORSet = _difference(ANDset, NOTset)
 
       docFreqs.ORSets.push({
         keySet: keySet,
