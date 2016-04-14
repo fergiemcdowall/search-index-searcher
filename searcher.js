@@ -131,10 +131,10 @@ var getCategories = function (q, frequencies, indexes, callback) {
         return item.id
       })
       var gte = ORSet.leastFrequent.key[0].split('￮')
-        .slice(0, 3).join('￮') + '￮' + category.name
+        .slice(0, 3).join('￮') + '￮' + category.field
       var lte = ORSet.leastFrequent.key[1].split('￮')
-          .slice(0, 3).join('￮') + '￮' + category.name + '￮￮'
-      var thisCategory = {key: category.name, value: []}
+          .slice(0, 3).join('￮') + '￮' + category.field + '￮￮'
+      var thisCategory = {key: category.field, value: []}
       indexes.createReadStream({gte: gte, lte: lte})
         .on('data', function (data) {
           var categoryPropertyValue = data.key.split('￮')[4]
@@ -153,7 +153,7 @@ var getCategories = function (q, frequencies, indexes, callback) {
         })
     }, function (err) {
       var mungedCategory = {}
-      mungedCategory.key = category.name
+      mungedCategory.key = category.field
       mungedCategory.value = []
       _flatten(categoriesForORSet.map(function (item) {
         return item.value
