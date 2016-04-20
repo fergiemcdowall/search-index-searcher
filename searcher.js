@@ -43,6 +43,7 @@ module.exports = function (givenOptions, callback) {
       if (keySet.length === 0) return callback(getEmptyResultSet(q))
       log.info(JSON.stringify(q))
       getDocumentFreqencies(q, keySet, options.indexes, function (err, frequencies) {
+
         // improve returned resultset here:
         if (err) return callback(err, getEmptyResultSet(q))
         async.parallel([
@@ -210,10 +211,10 @@ var getBuckets = function (q, frequencies, indexes, callback) {
         var token = ANDKeys[0].split('￮')[2]
 
         // var gte = ANDKeys[0].slice(0, -1)
-        var gte = 'TF￮' + fieldName + '￮' + token + '￮' +
+        var gte = 'DF￮' + fieldName + '￮' + token + '￮' +
           bucket.field + '￮' +
           bucket.gte
-        var lte = 'TF￮' + fieldName + '￮' + token + '￮' +
+        var lte = 'DF￮' + fieldName + '￮' + token + '￮' +
           bucket.field + '￮' +
           bucket.lte + '￮'
         var thisBucket = _find(buckets, bucket) || bucket
@@ -290,19 +291,19 @@ var getKeySet = function (q) {
       or[bool].forEach(function (set) {
         for (var fieldName in set) {
           set[fieldName].forEach(function (token) {
-            // orKeySet[bool].push('TF' + '￮' + fieldName + '￮' + token + '￮￮')
+            // orKeySet[bool].push('DF' + '￮' + fieldName + '￮' + token + '￮￮')
             if (q.filter && Array.isArray(q.filter)) {
               // Filters: TODO
               q.filter.forEach(function (filter) {
                 orKeySet[bool].push([
-                  'TF￮' + fieldName + '￮' + token + '￮' + filter.field + '￮' + filter.gte,
-                  'TF￮' + fieldName + '￮' + token + '￮' + filter.field + '￮' + filter.lte + '￮'
+                  'DF￮' + fieldName + '￮' + token + '￮' + filter.field + '￮' + filter.gte,
+                  'DF￮' + fieldName + '￮' + token + '￮' + filter.field + '￮' + filter.lte + '￮'
                 ])
               })
             } else {
               orKeySet[bool].push([
-                'TF￮' + fieldName + '￮' + token + '￮￮',
-                'TF￮' + fieldName + '￮' + token + '￮￮￮'
+                'DF￮' + fieldName + '￮' + token + '￮￮',
+                'DF￮' + fieldName + '￮' + token + '￮￮￮'
               ])
             }
           })
@@ -491,8 +492,8 @@ var getResultsSortedByField = function (q, frequencies, keySet, indexes, callbac
 // var getResults = function (q, frequencies, indexes, callbackX) {
 var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
   async.mapSeries(frequencies.docFreqs, function (item, callbacker) {
-    var gte = item[1][0].replace(/^TF￮/, 'RI￮')
-    var lte = item[1][1].replace(/^TF￮/, 'RI￮')
+    var gte = item[1][0].replace(/^DF￮/, 'TF￮')
+    var lte = item[1][1].replace(/^DF￮/, 'TF￮')
     var field = gte.split('￮')[1]
     var token = gte.split('￮')[2]
     var idf = frequencies.idf[field + '￮' + token]

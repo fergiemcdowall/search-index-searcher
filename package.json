@@ -1,6 +1,6 @@
 {
   "name": "search-index-searcher",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "The search module for search-index",
   "main": "searcher.js",
   "scripts": {
