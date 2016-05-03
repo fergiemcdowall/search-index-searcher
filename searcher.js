@@ -43,7 +43,6 @@ module.exports = function (givenOptions, callback) {
       if (keySet.length === 0) return callback(getEmptyResultSet(q))
       log.info(JSON.stringify(q))
       getDocumentFreqencies(q, keySet, options.indexes, function (err, frequencies) {
-
         // improve returned resultset here:
         if (err) return callback(err, getEmptyResultSet(q))
         async.parallel([
