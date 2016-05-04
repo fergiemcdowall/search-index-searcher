@@ -1,6 +1,6 @@
 {
   "name": "search-index-searcher",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "description": "The search module for search-index",
   "main": "searcher.js",
   "repository": {
@@ -40,7 +40,6 @@
     "lodash.union": "^4.2.1",
     "lodash.uniq": "^4.2.1",
     "lodash.uniqwith": "^4.2.1",
-    "log-skeleton": "^1.1.0",
     "search-context": "^0.1.0",
     "stopword": "0.0.6",
     "term-vector": "0.0.18"

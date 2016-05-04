@@ -19,7 +19,6 @@ const async = require('async')
 const bunyan = require('bunyan')
 const levelup = require('levelup')
 const scontext = require('search-context')
-const skeleton = require('log-skeleton')
 const sw = require('stopword')
 
 // const _ = require('lodash') // just for testing
@@ -28,12 +27,14 @@ var queryDefaults = {
   maxFacetLimit: 100,
   offset: 0,
   pageSize: 100,
-  categories: []
+  categories: [],
+  teaserHighlighter : function(string) {
+    return '<b>' + string + '</b>'
+  }
 }
 
 module.exports = function (givenOptions, callback) {
   getOptions(givenOptions, function (err, options) {
-    var log = skeleton((options) ? options.log : undefined)
     var Searcher = {}
 
     Searcher.search = function (q, callback) {
@@ -41,13 +42,13 @@ module.exports = function (givenOptions, callback) {
       // q.query = removeStopwordsFromQuery(q.query, options.stopwords)
       var keySet = getKeySet(q)
       if (keySet.length === 0) return callback(getEmptyResultSet(q))
-      log.info(JSON.stringify(q))
+      options.log.info(JSON.stringify(q))
       getDocumentFreqencies(q, keySet, options.indexes, function (err, frequencies) {
         // improve returned resultset here:
         if (err) return callback(err, getEmptyResultSet(q))
         async.parallel([
           function (callback) {
-            getResults(q, frequencies, keySet, options.indexes, function (err, hits) {
+            getResults(q, frequencies, keySet, options, function (err, hits) {
               callback(err, hits)
             })
           },
@@ -463,20 +464,20 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
   })
 }
 
-var getResults = function (q, frequencies, keySet, indexes, callback) {
+var getResults = function (q, frequencies, keySet, options, callback) {
   if (q.sort) {
-    getResultsSortedByField(q, frequencies, keySet, indexes, callback)
+    getResultsSortedByField(q, frequencies, keySet, options, callback)
   } else {
-    getResultsSortedByTFIDF(q, frequencies, indexes, callback)
+    getResultsSortedByTFIDF(q, frequencies, options, callback)
   }
 }
 
-var getResultsSortedByField = function (q, frequencies, keySet, indexes, callback) {
+var getResultsSortedByField = function (q, frequencies, keySet, options, callback) {
   var sortKey = q.sort[0]
   var sortDirection = q.sort[1]
   glueDocs(frequencies.allDocsIDsInResultSet.map(function (item) {
     return {id: item}
-  }), q, indexes, function (result) {
+  }), q, options, function (result) {
     result = result.sort(function (a, b) {
       if (sortDirection === 'asc') {
         return a.document[sortKey] - b.document[sortKey]
@@ -489,7 +490,7 @@ var getResultsSortedByField = function (q, frequencies, keySet, indexes, callbac
 }
 
 // var getResults = function (q, frequencies, indexes, callbackX) {
-var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
+var getResultsSortedByTFIDF = function (q, frequencies, options, callbackX) {
   async.mapSeries(frequencies.docFreqs, function (item, callbacker) {
     var gte = item[1][0].replace(/^DF￮/, 'TF￮')
     var lte = item[1][1].replace(/^DF￮/, 'TF￮')
@@ -507,7 +508,7 @@ var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
     }
 
     // TODO: only has to go up to page size (otherwise: WHATS THE POINT?!)
-    indexes.createReadStream({gte: gte, lte: lte + '￮'})
+    options.indexes.createReadStream({gte: gte, lte: lte + '￮'})
       .on('data', function (data) {
         for (var i = 0; i < data.value.length; i++) {
           var thisID = data.value[i][1]
@@ -583,20 +584,16 @@ var getResultsSortedByTFIDF = function (q, frequencies, indexes, callbackX) {
 
     hits = hits.slice((+q.offset), (+q.offset) + (+q.pageSize))
 
-    glueDocs(hits, q, indexes, function (result) {
+    glueDocs(hits, q, options, function (result) {
       return callbackX(err, result)
     })
   })
 }
 
-var glueDocs = function (hits, q, indexes, callbackX) {
+var glueDocs = function (hits, q, options, callbackX) {
   async.mapSeries(hits, function (item, callback) {
-    indexes.get('DOCUMENT￮' + item.id + '￮', function (err, value) {
+    options.indexes.get('DOCUMENT￮' + item.id + '￮', function (err, value) {
       item.document = value
-      // var terms = q.query[0]['*']
-      // if (q.query[0][q.teaser]) {
-      //   terms = q.query[0][q.teaser] // this is a nasty hack- remove the [0]
-      // }
       if (q.teaser && item.document[q.teaser]) {
         var teaserTerms = []
         q.query.forEach(function (item) {
@@ -609,15 +606,13 @@ var glueDocs = function (hits, q, indexes, callbackX) {
             }
           })
         })
-
         try {
           item.document.teaser = scontext(
             item.document[q.teaser],
             teaserTerms,
             400,
-            function hi (string) {
-              return '<span class="sc-em">' + string + '</span>'
-            })
+            q.teaserHighlighter
+          )
         } catch (e) {
           console.log('error with teaser generation: ' + e)
         }
