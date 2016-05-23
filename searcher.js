@@ -72,7 +72,7 @@ module.exports = function (givenOptions, callback) {
           response.totalHits = frequencies.allDocsIDsInResultSet.length
           response.totalDocsInIndex = frequencies.totalDocsInIndex
           response.documentFrequencies = frequencies.df
-          response.fieldWeight = frequencies.fieldWeight
+          // response.fieldWeight = frequencies.fieldWeight
           response.query = q.query
           response.buckets = results[2]
           response.categories = results[1]
@@ -282,6 +282,7 @@ var getKeySet = function (q) {
     var orKeySet = {}
     orKeySet.AND = []
     orKeySet.NOT = []
+    orKeySet.BOOST = or.boost || 0
     // AND condtions
 
     ;['AND', 'NOT'].forEach(function (bool) {
@@ -325,6 +326,7 @@ var getEmptyResultSet = function (q) {
 }
 
 var getDocumentFreqencies = function (q, keySets, indexes, callback) {
+
   // Check document frequencies
   var keySetsUniq = keySets.map(function (set) {
     return set.AND.concat(set.NOT)
@@ -345,6 +347,7 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
         callback(null, {key: item, value: uniq.sort()})
       })
   }, function (asyncerr, results) {
+
     if (!results[0]) {
       // array is empty
       return callback(asyncerr, [])
@@ -356,7 +359,7 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
     docFreqs.totalDocsInIndex = 0
     docFreqs.df = {}
     docFreqs.idf = {}
-    docFreqs.fieldWeight = {}
+    // docFreqs.fieldWeight = {}
     docFreqs.docFreqs = []
 
     // get document frequencies
@@ -367,15 +370,15 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
       docFreqs.df[dfToken] = dfValue
     })
 
-    // get field weight
-    Object.keys(docFreqs.df).forEach(function (i) {
-      docFreqs.fieldWeight[i] = 0
-      if (q.weight) {
-        if (q.weight[i.split('￮')[0]]) {
-          docFreqs.fieldWeight[i] = q.weight[i.split('￮')[0]]
-        }
-      }
-    })
+    // // get field weight
+    // Object.keys(docFreqs.df).forEach(function (i) {
+    //   docFreqs.fieldWeight[i] = 0
+    //   if (q.weight) {
+    //     if (q.weight[i.split('￮')[0]]) {
+    //       docFreqs.fieldWeight[i] = q.weight[i.split('￮')[0]]
+    //     }
+    //   }
+    // })
 
     // for each OR
     keySets.forEach(function (keySet) {
@@ -491,6 +494,7 @@ var getResultsSortedByField = function (q, frequencies, keySet, options, callbac
 
 // var getResults = function (q, frequencies, indexes, callbackX) {
 var getResultsSortedByTFIDF = function (q, frequencies, options, callbackX) {
+
   async.mapSeries(frequencies.docFreqs, function (item, callbacker) {
     var gte = item[1][0].replace(/^DF￮/, 'TF￮')
     var lte = item[1][1].replace(/^DF￮/, 'TF￮')
@@ -520,11 +524,14 @@ var getResultsSortedByTFIDF = function (q, frequencies, options, callbackX) {
                   ORSet.keySet.AND.forEach(function (key) {
                     if (_isEqual(key, item[1])) {
                       // hit.tf.push(data.value[i])
-                      hit.tfidf.push([token,
+                      hit.tfidf.push([
+                        token,
                         field,
                         thisTF * idf,
                         thisTF,
-                        idf])
+                        idf,
+                        ORSet.keySet.BOOST
+                      ])
                     }
                   })
                 }
@@ -542,6 +549,7 @@ var getResultsSortedByTFIDF = function (q, frequencies, options, callbackX) {
         return callbacker(null, hits)
       })
   }, function (err, result) {
+
     // Safe OR results are now in frequencies.ORSets so this should now
     // be edited to read form frequencies.ORSets
 
@@ -568,7 +576,9 @@ var getResultsSortedByTFIDF = function (q, frequencies, options, callbackX) {
         hit.tfidf.push(item.tfidf)
         // AND
         item.tfidf.forEach(function (ANDTokens) {
-          hit.score += +ANDTokens[2]
+          const tfidf = ANDTokens[2]
+          const boost = ANDTokens[5]
+          hit.score += +(tfidf + boost)
         })
       })
       return hit
