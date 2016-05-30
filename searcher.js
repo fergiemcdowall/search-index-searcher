@@ -38,12 +38,11 @@ module.exports = function (givenOptions, callback) {
     var Searcher = {}
 
     Searcher.search = function (q, callback) {
+      options.log.info({q: q}, 'QUERY')
       _defaults(q, queryDefaults)
-      // q.query = removeStopwordsFromQuery(q.query, options.stopwords)
       var keySet = getKeySet(q)
       if (keySet.length === 0) return callback(getEmptyResultSet(q))
-      options.log.info(JSON.stringify(q))
-      getDocumentFreqencies(q, keySet, options.indexes, function (err, frequencies) {
+      getDocumentFreqencies(q, keySet, options, function (err, frequencies) {
         // improve returned resultset here:
         if (err) return callback(err, getEmptyResultSet(q))
         async.parallel([
@@ -325,7 +324,7 @@ var getEmptyResultSet = function (q) {
   return resultSet
 }
 
-var getDocumentFreqencies = function (q, keySets, indexes, callback) {
+var getDocumentFreqencies = function (q, keySets, options, callback) {
 
   // Check document frequencies
   var keySetsUniq = keySets.map(function (set) {
@@ -336,12 +335,12 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
   async.map(keySetsUniq, function (item, callback) {
     var uniq = []
     // loop through each AND condition
-    indexes.createReadStream({gte: item[0], lte: item[1] + '￮'})
+    options.indexes.createReadStream({gte: item[0], lte: item[1] + '￮'})
       .on('data', function (data) {
         uniq = uniqFast(uniq.concat(data.value))
       })
       .on('error', function (err) {
-        console.log(err)
+        options.log.debug(err)
       })
       .on('end', function () {
         callback(null, {key: item, value: uniq.sort()})
@@ -454,7 +453,7 @@ var getDocumentFreqencies = function (q, keySets, indexes, callback) {
       docFreqs.docFreqs.push([results[i].value.length, keySetsUniq[i]])
     }
 
-    indexes.get('DOCUMENT-COUNT', function (err, value) {
+    options.indexes.get('DOCUMENT-COUNT', function (err, value) {
       docFreqs.totalDocsInIndex = value
 
       // TODO: get inverse document frequencies here
@@ -543,7 +542,7 @@ var getResultsSortedByTFIDF = function (q, frequencies, options, callbackX) {
         }
       })
       .on('error', function (err) {
-        console.log('Oh my!', err)
+        options.log.debug('Oh my!', err)
       })
       .on('end', function () {
         return callbacker(null, hits)
@@ -624,7 +623,7 @@ var glueDocs = function (hits, q, options, callbackX) {
             q.teaserHighlighter
           )
         } catch (e) {
-          console.log('error with teaser generation: ' + e)
+          options.log.debug('error with teaser generation: ' + e)
         }
       }
       callback(err, item)
