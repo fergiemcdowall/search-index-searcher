@@ -600,7 +600,7 @@ var getResultsSortedByTFIDF = function (q, frequencies, options, callbackX) {
 }
 
 var glueDocs = function (hits, q, options, callbackX) {
-  async.mapSeries(hits, function (item, callback) {
+  async.mapLimit(hits, 5, function (item, callback) {
     options.indexes.get('DOCUMENT￮' + item.id + '￮', function (err, value) {
       item.document = value
       if (q.teaser && item.document[q.teaser]) {
