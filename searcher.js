@@ -481,10 +481,15 @@ var getResultsSortedByField = function (q, frequencies, keySet, options, callbac
     return {id: item}
   }), q, options, function (result) {
     result = result.sort(function (a, b) {
-      if (sortDirection === 'asc') {
-        return a.document[sortKey] - b.document[sortKey]
+      var aVal = a.document[sortKey];
+      var bVal = b.document[sortKey];
+
+      if (aVal === bVal) {
+        return 0;
+      } else if (sortDirection === 'asc') {
+        return aVal < bVal ? -1 : 1;
       } else {
-        return b.document[sortKey] - a.document[sortKey]
+        return aVal < bVal ? 1 : -1;
       }
     }).slice((+q.offset), (+q.offset) + (+q.pageSize))
     return callback(null, result)
