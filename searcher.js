@@ -21,7 +21,10 @@ const levelup = require('levelup')
 const scontext = require('search-context')
 const sw = require('stopword')
 
-// const _ = require('lodash') // just for testing
+const Readable = require('stream').Readable
+const iats = require('intersect-arrays-to-stream')
+const Transform = require('stream').Transform
+const util = require('util')
 
 var queryDefaults = {
   maxFacetLimit: 100,
@@ -80,9 +83,75 @@ module.exports = function (givenOptions, callback) {
         })
       })
     }
+
+    // Searcher.scan = require('./scanner.js').scan
+
+    Searcher.scan = function(q) {
+      return scan(q, options)
+    }
+
     return callback(err, Searcher)
   })
 }
+
+
+
+
+var scan = function (q, options) {
+
+  // Make a Transform stream stage to fetch docs from DB
+  function FetchDocsFromDB () {
+    Transform.call(this, { objectMode: true })
+  }
+  util.inherits(FetchDocsFromDB, Transform)
+  FetchDocsFromDB.prototype._transform = function (line, encoding, end) {
+    var that = this
+    options.indexes.get('DOCUMENT￮' + line.toString() + '￮', function(err, doc) {
+      that.push(JSON.stringify(doc) + '\n')
+      end()
+    })
+  }
+
+  // Make a Transform stream stage to get an intersection stream
+  function GetIntersectionStream (ANDKeys) {
+    this.ANDKeys = ANDKeys
+    Transform.call(this, { objectMode: true })
+  }
+  util.inherits(GetIntersectionStream, Transform)
+  GetIntersectionStream.prototype._transform = function (line, encoding, end) {
+    var that = this
+    async.map(
+      this.ANDKeys,
+      function(item, callback) {
+
+// TODO: make filters work
+
+        options.indexes.get(item, callback)
+      },
+      function(err, results) {
+        iats.getIntersectionStream(results).on('data', function(data) {
+          that.push(data)
+        }).on('end', function() {
+          end()
+        })
+      })
+  }
+
+  var keySet = getKeySet(q)
+  // console.log(JSON.stringify(keySet, null, 2))
+
+  // just make this work for a simple one clause AND
+  // TODO: add filtering, NOTting, multi-clause AND
+  var ANDKeys = keySet[0].AND.map(function(i) {
+    return i[0]
+  })
+  var s = new Readable()
+  s.push('init')
+  s.push(null)
+  return s.pipe(new GetIntersectionStream(ANDKeys))
+    .pipe(new FetchDocsFromDB())
+}
+
 
 var sort = function (sortName) {
   if (sortName === 'keyAsc') {

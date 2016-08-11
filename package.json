@@ -12,6 +12,10 @@
     "index",
     "searcher"
   ],
+  "scripts": {
+    "test": "export SANDBOX=test/sandbox && rm -rf $SANDBOX && mkdir $SANDBOX && tape test/test.js"
+  },
+
   "author": "Fergus McDowall",
   "license": "MIT",
   "bugs": {
@@ -45,6 +49,8 @@
     "term-vector": "0.0.18"
   },
   "devDependencies": {
-    "standard": "^6.0.8"
+    "search-index": "^0.8.12",
+    "standard": "^6.0.8",
+    "tape": "^4.6.0"
   }
 }
