@@ -1,6 +1,8 @@
 const _defaults = require('lodash.defaults')
 // TODO: consider compiling up a custom lodash lib
 
+const Readable = require('stream').Readable
+const Transform = require('stream').Transform
 const _difference = require('lodash.difference')
 const _filter = require('lodash.filter')
 const _find = require('lodash.find')
@@ -17,13 +19,10 @@ const _uniq = require('lodash.uniq')
 const _uniqWith = require('lodash.uniqwith')
 const async = require('async')
 const bunyan = require('bunyan')
+const iats = require('intersect-arrays-to-stream')
 const levelup = require('levelup')
 const scontext = require('search-context')
 const sw = require('stopword')
-
-const Readable = require('stream').Readable
-const iats = require('intersect-arrays-to-stream')
-const Transform = require('stream').Transform
 const util = require('util')
 
 var queryDefaults = {

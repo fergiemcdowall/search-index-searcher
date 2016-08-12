@@ -1,6 +1,6 @@
 {
   "name": "search-index-searcher",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "description": "The search module for search-index",
   "main": "searcher.js",
   "repository": {
@@ -15,7 +15,6 @@
   "scripts": {
     "test": "export SANDBOX=test/sandbox && rm -rf $SANDBOX && mkdir $SANDBOX && tape test/test.js"
   },
-
   "author": "Fergus McDowall",
   "license": "MIT",
   "bugs": {
@@ -25,6 +24,7 @@
   "dependencies": {
     "async": "^1.5.2",
     "bunyan": "^1.8.1",
+    "intersect-arrays-to-stream": "0.0.3",
     "leveldown": "^1.4.6",
     "levelup": "^1.3.1",
     "lodash.compact": "^3.0.1",
