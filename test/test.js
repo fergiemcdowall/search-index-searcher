@@ -86,7 +86,7 @@ test('initialize a search index', function (t) {
     t.error(err)
     thisSi.add(batch, {
       fieldOptions: [{
-        name: 'price',
+        fieldName: 'price',
         filter: true
       }]
     }, function (err) {
@@ -153,21 +153,21 @@ test('do a simple scan with one word on a given field', function (t) {
 
 // TODO: make filters work
 
-// test('do a simple scan with one word on a given field and filter', function (t) {
-//   t.plan(1)
-//   var results = []
-//   sis.scan({
-//     query: {
-//       AND: [{'name': ['swiss']}]
-//     },
-//     filter: [{
-//       field: 'price',
-//       gte: '3',
-//       lte: '9'
-//     }]
-//   }).on('data', function (doc) {
-//     results.push(JSON.parse(doc).id)
-//   }).on('end', function () {
-//     t.looseEqual(results, [ '10', '2', '3', '4', '5' ])
-//   })
-// })
+test('do a simple scan with one word on a given field and filter', function (t) {
+  t.plan(1)
+  var results = []
+  sis.scan({
+    query: {
+      AND: [{'name': ['swiss']}]
+    },
+    filter: [{
+      field: 'price',
+      gte: '3',
+      lte: '9'
+    }]
+  }).on('data', function (doc) {
+    results.push(JSON.parse(doc).id)
+  }).on('end', function () {
+    t.looseEqual(results, [ '10', '2', '3', '5' ])
+  })
+})

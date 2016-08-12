@@ -123,10 +123,14 @@ var scan = function (q, options) {
     async.map(
       this.ANDKeys,
       function(item, callback) {
-
-// TODO: make filters work
-
-        options.indexes.get(item, callback)
+        var ANDSetIDs = []
+        options.indexes.createReadStream({gte: item[0], lte: item[1]})
+          .on('data', function(data) {
+            ANDSetIDs = ANDSetIDs.concat(data.value).sort()
+          })
+          .on('end', function() {
+            callback(null, ANDSetIDs)
+          })
       },
       function(err, results) {
         iats.getIntersectionStream(results).on('data', function(data) {
@@ -142,9 +146,7 @@ var scan = function (q, options) {
 
   // just make this work for a simple one clause AND
   // TODO: add filtering, NOTting, multi-clause AND
-  var ANDKeys = keySet[0].AND.map(function(i) {
-    return i[0]
-  })
+  var ANDKeys = keySet[0].AND
   var s = new Readable()
   s.push('init')
   s.push(null)
