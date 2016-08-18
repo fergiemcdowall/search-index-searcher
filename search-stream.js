@@ -10,6 +10,10 @@ const _isEqual = require('lodash.isequal')
 const _ = require('lodash')
 const JSONStream = require('JSONStream')
 
+// TODO
+// Unlodashify!
+
+
 exports.searchStream = function(q, options) {
   q = _defaults(q || {}, {
     query: {
