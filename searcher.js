@@ -45,7 +45,7 @@ module.exports = function (givenOptions, callback) {
       var keySet = getKeySet(q)
       if (keySet.length === 0) return callback(getEmptyResultSet(q))
       getDocumentFreqencies(q, keySet, options, function (err, frequencies) {
-        // improve returned resultset here:
+        // TODO: improve returned resultset here:
         if (err) return callback(err, getEmptyResultSet(q))
         async.parallel([
           function (callback) {
@@ -87,6 +87,10 @@ module.exports = function (givenOptions, callback) {
 
     Searcher.scan = function(q) {
       return scan(q, options)
+    }
+
+    Searcher.searchStream = function(q) {
+      return require('./search-stream.js').searchStream(q, options)
     }
 
     return callback(err, Searcher)
@@ -438,16 +442,6 @@ var getDocumentFreqencies = function (q, keySets, options, callback) {
       var dfValue = item.value.length
       docFreqs.df[dfToken] = dfValue
     })
-
-    // // get field weight
-    // Object.keys(docFreqs.df).forEach(function (i) {
-    //   docFreqs.fieldWeight[i] = 0
-    //   if (q.weight) {
-    //     if (q.weight[i.split('￮')[0]]) {
-    //       docFreqs.fieldWeight[i] = q.weight[i.split('￮')[0]]
-    //     }
-    //   }
-    // })
 
     // for each OR
     keySets.forEach(function (keySet) {
