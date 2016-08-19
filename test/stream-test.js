@@ -89,6 +89,9 @@ test('initialize a search index', function (t) {
       fieldOptions: [{
         fieldName: 'price',
         filter: true
+      },{
+        fieldName: 'age',
+        filter: true
       }]
     }, function (err) {
       t.error(err)
@@ -190,7 +193,6 @@ test('do a simple search with NOT and filter', function (t) {
     pageSize: 10
   }).on('data', function (thing) {
     thing = JSON.parse(thing)
-    console.log(thing)
     if (!thing.metadata)
       results.push(thing)
   }).on('end', function () {
@@ -199,6 +201,41 @@ test('do a simple search with NOT and filter', function (t) {
         return item.document.id
       }),
       [ '3' ]
+    )
+  })
+})
+
+test('do a simple search with NOT and filter', function (t) {
+  t.plan(1)
+  const results = []
+  sis.searchStream({
+    query: [{
+      AND: {'*': ['swiss', 'watch']},
+      NOT: {'description': ['timekeeping']}
+    }],
+    filter: [
+      {
+        field: 'price',
+        gte: '2',
+        lte: '9'
+      },
+      {
+        field: 'age',
+        gte: '3',
+        lte: '4'
+      }
+    ],
+    pageSize: 10
+  }).on('data', function (thing) {
+    thing = JSON.parse(thing)
+    if (!thing.metadata)
+      results.push(thing)
+  }).on('end', function () {
+    t.looseEqual(
+      results.map(function (item) {
+        return item.document.id
+      }),
+      [ '2' ]
     )
   })
 })
