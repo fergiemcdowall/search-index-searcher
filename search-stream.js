@@ -44,32 +44,49 @@ util.inherits(CalculateResultSet, Transform)
 CalculateResultSet.prototype._transform = function (queryClause, encoding, end) {
   const that = this
   const frequencies = {}
+  
   async.map(getKeySet(queryClause.AND, this.filter), function (item, callback) {
-    var uniq = []
+    var include = []
     that.options.indexes.createReadStream({gte: item[0], lte: item[1] + '￮'})
       .on('data', function (data) {
-        uniq = uniqFast(uniq.concat(data.value))
+        include = uniqFast(include.concat(data.value))
       })
       .on('error', function (err) {
         options.log.debug(err)
       })
       .on('end', function () {
-        // frequencies.push([item[0], uniq.length])
-        frequencies[item[0].substring(3).slice(0, - 2)] = uniq.length
-        return callback(null, uniq.sort())
+        // frequencies.push([item[0], include.length])
+        frequencies[item[0].substring(3).slice(0, - 2)] = include.length
+        return callback(null, include.sort())
       })
-  }, function (asyncerr, results) {
+  }, function (asyncerr, includeResults) {
     const bigIntersect = _.spread(_.intersection)
- 
-    // TODO: deal with NOTing
-
-    that.push(JSON.stringify({
-      queryClause: queryClause,
-      set: bigIntersect(results),
-      termFrequencies: frequencies,
-      BOOST: queryClause.BOOST || 0
-    }))
-    end()
+    var include = bigIntersect(includeResults)
+    // NOTing
+    async.map(getKeySet(queryClause.NOT, this.filter), function (item, callback) {
+      var exclude = []
+      that.options.indexes.createReadStream({gte: item[0], lte: item[1] + '￮'})
+        .on('data', function (data) {
+          exclude = uniqFast(exclude.concat(data.value))
+        })
+        .on('error', function (err) {
+          options.log.debug(err)
+        })
+        .on('end', function () {
+          return callback(null, exclude.sort())
+        })
+    }, function (asyncerr, excludeResults) {
+      excludeResults.forEach(function(excludeSet) {
+        include = _.difference(include, excludeSet)
+      })
+      that.push(JSON.stringify({
+        queryClause: queryClause,
+        set: include,
+        termFrequencies: frequencies,
+        BOOST: queryClause.BOOST || 0
+      }))
+     return end()
+    })    
   })
 }
 
@@ -80,19 +97,18 @@ function CalculateTopScoringDocs (options, seekLimit) {
 }
 util.inherits(CalculateTopScoringDocs, Transform)
 CalculateTopScoringDocs.prototype._transform = function (clauseSet, encoding, end) {
-  console.log(clauseSet)
   clauseSet = JSON.parse(clauseSet)
   const that = this
 
-  var lowestFrequency = Object.keys(clauseSet.termFrequencies)
+  const lowestFrequency = Object.keys(clauseSet.termFrequencies)
     .map(function (key) {
       return [key, clauseSet.termFrequencies[key]]
     }).sort(function(a, b) {
       return a[1] - b[1]
     })[0]
 
-  var gte = 'TF￮' + lowestFrequency[0] + '￮￮'
-  var lte = 'TF￮' + lowestFrequency[0] + '￮￮￮'
+  const gte = 'TF￮' + lowestFrequency[0] + '￮￮'
+  const lte = 'TF￮' + lowestFrequency[0] + '￮￮￮'
 
   // walk down the DF array of lowest frequency hit until (offset +
   // pagesize) hits have been found

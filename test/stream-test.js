@@ -148,3 +148,27 @@ test('do a simple search', function (t) {
     )
   })
 })
+
+
+test('do a simple search', function (t) {
+  t.plan(1)
+  const results = []
+  sis.searchStream({
+    query: [{
+      AND: {'*': ['swiss', 'watch']},
+      NOT: {'description': ['timekeeping']}
+    }],
+    pageSize: 10
+  }).on('data', function (thing) {
+    thing = JSON.parse(thing)
+    if (!thing.metadata)
+      results.push(thing)
+  }).on('end', function () {
+    t.looseEqual(
+      results.map(function (item) {
+        return item.document.id
+      }),
+      [ '3', '9', '2' ]
+    )
+  })
+})
