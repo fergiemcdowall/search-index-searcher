@@ -209,7 +209,9 @@ SortTopScoringDocs.prototype._transform = function (doc, encoding, end) {
 SortTopScoringDocs.prototype._flush = function (end) {
   var that = this
   this.resultSet = this.resultSet.sort(function(a, b) {
-    return a.score.score - b.score.score
+    if (a.score.score < b.score.score) return true
+    if (a.document.id < b.document.id) return true
+    return false
   })
   this.resultSet.forEach(function(hit) {
     that.push(JSON.stringify(hit, null, 2))

@@ -130,7 +130,7 @@ test('do a simple search', function (t) {
 })
 
 
-test('do a simple search', function (t) {
+test('do a simple streamy search', function (t) {
   t.plan(1)
   const results = []
   sis.searchStream({
@@ -147,7 +147,7 @@ test('do a simple search', function (t) {
       results.map(function (item) {
         return item.document.id
       }),
-      [ '3', '10', '9', '2' ]
+      [  '9', '2', '3', '10' ]
     )
   })
 })
@@ -171,7 +171,7 @@ test('do a simple search with NOT', function (t) {
       results.map(function (item) {
         return item.document.id
       }),
-      [ '3', '9', '2' ]
+      [ '9', '2', '3' ]
     )
   })
 })
