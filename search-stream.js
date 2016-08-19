@@ -56,7 +56,9 @@ CalculateResultSet.prototype._transform = function (queryClause, encoding, end) 
       })
       .on('end', function () {
         // frequencies.push([item[0], include.length])
-        frequencies[item[0].substring(3).slice(0, - 2)] = include.length
+        var fKey = item[0].split('￮')[1] + '￮' + item[0].split('￮')[2]
+        
+        frequencies[fKey] = include.length
         return callback(null, include.sort())
       })
   }, function (asyncerr, includeResults) {
@@ -99,7 +101,6 @@ util.inherits(CalculateTopScoringDocs, Transform)
 CalculateTopScoringDocs.prototype._transform = function (clauseSet, encoding, end) {
   clauseSet = JSON.parse(clauseSet)
   const that = this
-
   const lowestFrequency = Object.keys(clauseSet.termFrequencies)
     .map(function (key) {
       return [key, clauseSet.termFrequencies[key]]

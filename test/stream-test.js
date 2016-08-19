@@ -150,7 +150,7 @@ test('do a simple search', function (t) {
 })
 
 
-test('do a simple search', function (t) {
+test('do a simple search with NOT', function (t) {
   t.plan(1)
   const results = []
   sis.searchStream({
@@ -169,6 +169,36 @@ test('do a simple search', function (t) {
         return item.document.id
       }),
       [ '3', '9', '2' ]
+    )
+  })
+})
+
+
+test('do a simple search with NOT and filter', function (t) {
+  t.plan(1)
+  const results = []
+  sis.searchStream({
+    query: [{
+      AND: {'*': ['swiss', 'watch']},
+      NOT: {'description': ['timekeeping']}
+    }],
+    filter: [{
+      field: 'price',
+      gte: '3',
+      lte: '5'
+    }],
+    pageSize: 10
+  }).on('data', function (thing) {
+    thing = JSON.parse(thing)
+    console.log(thing)
+    if (!thing.metadata)
+      results.push(thing)
+  }).on('end', function () {
+    t.looseEqual(
+      results.map(function (item) {
+        return item.document.id
+      }),
+      [ '3' ]
     )
   })
 })
