@@ -175,8 +175,9 @@ ScoreTopScoringDocs.prototype._transform = function (clause, encoding, end) {
             tfidf[key] = tf * idf
           })
           var score = (Object.keys(tfidf).reduce(function(prev, cur) {
-            return tfidf[prev] + tfidf[cur]
-          }) / Object.keys(tfidf).length)
+            return (tfidf[prev] || 0) + tfidf[cur]
+          }, 0) / Object.keys(tfidf).length)
+          debugger
           const document = {
             score: {
               tf: clause.termFrequencies,
@@ -209,9 +210,11 @@ SortTopScoringDocs.prototype._transform = function (doc, encoding, end) {
 SortTopScoringDocs.prototype._flush = function (end) {
   var that = this
   this.resultSet = this.resultSet.sort(function(a, b) {
-    if (a.score.score < b.score.score) return true
-    if (a.document.id < b.document.id) return true
-    return false
+    if (a.score.score < b.score.score) return 1
+    if (a.score.score > b.score.score) return -1
+    if (a.document.id < b.document.id) return 1
+    if (a.document.id > b.document.id) return -1
+    return 0
   })
   this.resultSet.forEach(function(hit) {
     that.push(JSON.stringify(hit, null, 2))

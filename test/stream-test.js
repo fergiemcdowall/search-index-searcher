@@ -147,7 +147,7 @@ test('do a simple streamy search', function (t) {
       results.map(function (item) {
         return item.document.id
       }),
-      [  '9', '2', '3', '10' ]
+      [  '9', '3', '2', '10' ]
     )
   })
 })
@@ -171,7 +171,7 @@ test('do a simple search with NOT', function (t) {
       results.map(function (item) {
         return item.document.id
       }),
-      [ '9', '2', '3' ]
+      [ '9', '3', '2' ]
     )
   })
 })
@@ -205,7 +205,7 @@ test('do a simple search with NOT and filter', function (t) {
   })
 })
 
-test('do a simple search with NOT and filter', function (t) {
+test('do a simple search with NOT and two filters', function (t) {
   t.plan(1)
   const results = []
   sis.searchStream({
@@ -239,3 +239,29 @@ test('do a simple search with NOT and filter', function (t) {
     )
   })
 })
+
+
+test('search with OR', function (t) {
+  t.plan(1)
+  const results = []
+  sis.searchStream({
+    query: [{
+      AND: {'*': ['swiss', 'watch']}
+    }, {
+      AND: {'*': ['elite']}
+    }]
+  }).on('data', function (thing) {
+    thing = JSON.parse(thing)
+    console.log(thing)
+    if (!thing.metadata)
+      results.push(thing)
+  }).on('end', function () {
+    t.looseEqual(
+      results.map(function (item) {
+        return item.document.id
+      }),
+      [ '9', '3', '2', '10', '7' ]
+    )
+  })
+})
+
