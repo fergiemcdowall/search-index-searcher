@@ -93,6 +93,10 @@ module.exports = function (givenOptions, callback) {
       return require('./search-stream.js').searchStream(q, options)
     }
 
+    Searcher.bucketStream = function(q) {
+      return require('./search-stream.js').bucketStream(q, options)
+    }
+
     return callback(err, Searcher)
   })
 }

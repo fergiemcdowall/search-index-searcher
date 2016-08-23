@@ -252,7 +252,6 @@ test('search with OR', function (t) {
     }]
   }).on('data', function (thing) {
     thing = JSON.parse(thing)
-    console.log(thing)
     if (!thing.metadata)
       results.push(thing)
   }).on('end', function () {
@@ -261,6 +260,156 @@ test('search with OR', function (t) {
         return item.document.id
       }),
       [ '9', '3', '2', '10', '7' ]
+    )
+  })
+})
+
+
+test('buckets', function (t) {
+  t.plan(1)
+  sis.bucketStream({
+    query: [{
+      AND: {'*': ['*']}
+    }],
+    buckets: [{
+      field: 'price',
+      gte: 2,
+      lte: 3
+    }]
+  }).on('data', function (thing) {
+    thing = JSON.parse(thing)
+    t.looseEqual(
+      thing,
+      { field: 'price', gte: 2, lte: 3, IDSet: [ '1', '10', '4', '7' ] }
+    )
+  })
+})
+
+test('buckets', function (t) {
+  t.plan(1)
+  var result = []
+  sis.bucketStream({
+    query: [{
+      AND: {'*': ['*']}
+    }],
+    buckets: [{
+      field: 'price',
+      gte: 2,
+      lte: 3
+    }, {
+      field: 'price',
+      gte: 6,
+      lte: 9
+    }]
+  }).on('data', function (thing) {
+    thing = JSON.parse(thing)
+    result.push(thing)
+  }).on('end', function () {
+    t.looseEqual(
+      result,
+      [
+        { field: 'price', gte: 2, lte: 3, IDSet: [ '1', '10', '4', '7' ] },
+        { field: 'price', gte: 6, lte: 9, IDSet: [ '2', '5', '8' ] }
+      ]
+    )
+  })
+})
+
+test('two buckets', function (t) {
+  t.plan(1)
+  var result = []
+  sis.bucketStream({
+    query: [{
+      AND: {'*': ['swiss', 'watch']}
+    }],
+    buckets: [{
+      field: 'price',
+      gte: 2,
+      lte: 3
+    }, {
+      field: 'price',
+      gte: 6,
+      lte: 9
+    }]
+  }).on('data', function (thing) {
+    thing = JSON.parse(thing)
+    result.push(thing)
+  }).on('end', function () {
+    t.looseEqual(
+      result,
+      [
+        { field: 'price', gte: 2, lte: 3, IDSet: [ '10' ] },
+        { field: 'price', gte: 6, lte: 9, IDSet: [ '2' ] }
+      ]
+    )
+  })
+})
+
+test('two buckets plus OR', function (t) {
+  t.plan(1)
+  var result = []
+  sis.bucketStream({
+    query: [{
+      AND: {'*': ['swiss', 'watch']}
+    }, {
+      AND: {'*': ['elite']}
+    }],
+    buckets: [{
+      field: 'price',
+      gte: 2,
+      lte: 3
+    }, {
+      field: 'price',
+      gte: 6,
+      lte: 9
+    }]
+  }).on('data', function (thing) {
+    thing = JSON.parse(thing)
+    result.push(thing)
+  }).on('end', function () {
+    t.looseEqual(
+      result,
+      [
+        { field: 'price', gte: 2, lte: 3, IDSet: [ '10', '7' ] },
+        { field: 'price', gte: 6, lte: 9, IDSet: [ '2' ] }
+      ]
+    )
+  })
+})
+
+test('three buckets plus OR', function (t) {
+  t.plan(1)
+  var result = []
+  sis.bucketStream({
+    query: [{
+      AND: {'*': ['swiss', 'watch']}
+    }, {
+      AND: {'*': ['elite']}
+    }],
+    buckets: [{
+      field: 'price',
+      gte: 2,
+      lte: 3
+    }, {
+      field: 'price',
+      gte: 6,
+      lte: 9
+    }, {
+      field: 'age',
+      gte: 5,
+      lte: 9
+    }]
+  }).on('data', function (thing) {
+    thing = JSON.parse(thing)
+    result.push(thing)
+  }).on('end', function () {
+    t.looseEqual(
+      result,
+      [
+        { field: 'price', gte: 2, lte: 3, IDSet: [ '10', '7' ] },
+        { field: 'price', gte: 6, lte: 9, IDSet: [ '2' ] },
+        { field: 'age', gte: 5, lte: 9, IDSet: [ '3' ] }
+      ]
     )
   })
 })
