@@ -414,3 +414,110 @@ test('three buckets plus OR', function (t) {
   })
 })
 
+
+test('categories with set', function (t) {
+  t.plan(1)
+  var result = []
+  sis.categoryStream({
+    query: [{
+      AND: {'*': ['swiss', 'watch']}
+    }],
+    category: {
+      field: 'age',
+      set: true
+    }
+  }).on('data', function (thing) {
+    // thing = JSON.parse(thing)
+    result.push(thing)
+  }).on('end', function () {
+    t.looseEqual(
+      result,
+      [
+        { key: '33342', value: [ '10', '2', '4', '5', '9' ] },
+        { key: '8293', value: [ '3' ] }
+      ]
+    )
+  })
+})
+
+test('categories with limit and set', function (t) {
+  t.plan(1)
+  var result = []
+  sis.categoryStream({
+    query: [{
+      AND: {'*': ['swiss', 'watch']}
+    }],
+    category: {
+      field: 'price',
+      limit: '2',
+      set: true
+    }
+  }).on('data', function (thing) {
+    result.push(thing)
+  }).on('end', function () {
+    t.looseEqual(
+      result,
+      [
+        { key: '1000', value: [ '9' ] },
+        { key: '30000', value: [ '10' ] }
+      ]
+    )
+  })
+})
+
+test('categories with sort', function (t) {
+  t.plan(1)
+  var result = []
+  sis.categoryStream({
+    query: [{
+      AND: {'*': ['swiss', 'watch']}
+    }],
+    category: {
+      field: 'price',
+      sort: function(a, b) {
+        return b.key > a.key
+      }
+    }
+  }).on('data', function (thing) {
+    result.push(thing)
+  }).on('end', function () {
+    t.looseEqual(
+      result,
+      [
+        { key: '99', value: 1 },
+        { key: '4716', value: 1 },
+        { key: '30000', value: 1 },
+        { key: '1000', value: 1 }
+      ]
+    )
+  })
+})
+
+test('categories with value', function (t) {
+  t.plan(1)
+  var result = []
+  sis.categoryStream({
+    query: [{
+      AND: {'*': ['*']}
+    }],
+    category: {
+      field: 'age',
+      sort: function(a, b) {
+        return b.value - a.value
+      }
+    }
+  }).on('data', function (thing) {
+    result.push(thing)
+  }).on('end', function () {
+    t.looseEqual(
+      result,
+      [
+        { key: '33342', value: 8 },
+        { key: '8293', value: 1 },
+        { key: '346', value: 1 }
+      ]
+    )
+  })
+})
+
+

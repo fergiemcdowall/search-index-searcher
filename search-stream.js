@@ -55,6 +55,22 @@ exports.bucketStream = function(q, options) {
     .pipe(new CalculateBuckets(options, q.filter || {}, q.buckets))
 }
 
+exports.categoryStream = function(q, options) {
+  q = _defaults(q || {}, {
+    query: {
+      AND: [{'*': ['*']}]
+    },
+    category: {}
+  })
+  const s = new Readable()
+  q.query.forEach(function (clause) {
+    s.push(JSON.stringify(clause))
+  })
+  s.push(null)
+  return s.pipe(JSONStream.parse())
+    .pipe(new CalculateResultSet(options, q.filter || {}))
+    .pipe(new CalculateCategories(options, q.filter || {}, q.category))
+}
 
 
 function CalculateResultSet (options, filter) {
@@ -196,7 +212,6 @@ ScoreTopScoringDocs.prototype._transform = function (clause, encoding, end) {
           var score = (Object.keys(tfidf).reduce(function(prev, cur) {
             return (tfidf[prev] || 0) + tfidf[cur]
           }, 0) / Object.keys(tfidf).length)
-          debugger
           const document = {
             score: {
               tf: clause.termFrequencies,
@@ -300,6 +315,83 @@ CalculateBuckets.prototype._flush = function (end) {
   })
   return end()
 }
+
+
+function CalculateCategories (options, filter, category) {
+  category.values = []
+  this.category = category
+  this.filter = filter
+  this.options = options
+  Transform.call(this, { objectMode: true })
+}
+util.inherits(CalculateCategories, Transform)
+CalculateCategories.prototype._transform = function (queryClause, encoding, end) {
+  var that = this
+  queryClause = JSON.parse(queryClause)
+  // Shouldnt get every key in the AND set- should just get key with
+  // lowest frequency
+  // get lowest frequency key
+  const lowestFrequencyKey = Object.keys(queryClause.termFrequencies)
+    .map(function (key) {
+      return [key, queryClause.termFrequencies[key]]
+    }).sort(function(a, b) {
+      return a[1] - b[1]
+    })[0]
+  // async.map(that.categories, function (category, categoryProcessed) {
+  var fieldName = lowestFrequencyKey[0].split('￮')[0]
+  var token = lowestFrequencyKey[0].split('￮')[1]
+  var gte = 'DF￮' + fieldName + '￮' + token + '￮' +
+    this.category.field + '￮'
+  var lte = 'DF￮' + fieldName + '￮' + token + '￮' +
+    this.category.field + '￮￮'
+
+  this.category.values = this.category.values || []
+
+  // TODO: add some logic to see if keys are within ranges before doing a lookup
+  that.options.indexes.createReadStream({gte: gte, lte: lte})
+    .on('data', function (data) {
+      var IDSet = _intersection(data.value, queryClause.set)
+      if (IDSet.length > 0) {
+        var key = data.key.split('￮')[4]
+        that.category.values.push({
+          key: key,
+          value: data.value
+        })
+      }
+
+      // TODO: make loop aware of last iteration so that stream can
+      // be pushed before _flush
+
+    })
+    .on('close', function () {
+      return end()
+
+    })
+}
+CalculateCategories.prototype._flush = function (end) {
+  var that = this
+  if (this.category.values.set) {
+    this.category.values.map(function (elem) {
+      elem.value = elem.value.length
+      return elem
+    })    
+  }
+  this.category.values.sort(this.category.sort)
+  this.category.values =
+    this.category.values.slice(0, this.category.limit ||
+                               this.category.values.length)
+  if (!this.category.set) {
+    this.category.values.map(function (elem) {
+      elem.value = elem.value.length
+      return elem
+    })    
+  }
+  this.category.values.forEach(function (elem) {
+    that.push(elem)
+  })
+  return end()
+}
+
 
 var getKeySet = function (clause, filter) {
   var keySet = []

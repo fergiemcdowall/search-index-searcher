@@ -97,6 +97,10 @@ module.exports = function (givenOptions, callback) {
       return require('./search-stream.js').bucketStream(q, options)
     }
 
+    Searcher.categoryStream = function(q) {
+      return require('./search-stream.js').categoryStream(q, options)
+    }
+
     return callback(err, Searcher)
   })
 }
