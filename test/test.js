@@ -113,7 +113,7 @@ test('do a simple scan', function (t) {
   var results = []
   sis.scan({
     query: {
-      AND: [{'*': ['swiss', 'watch']}]
+      AND: {'*': ['swiss', 'watch']}
     }
   }).on('data', function (doc) {
     results.push(JSON.parse(doc).id)
@@ -127,7 +127,7 @@ test('do a simple scan with one word', function (t) {
   var results = []
   sis.scan({
     query: {
-      AND: [{'*': ['watch']}]
+      AND: {'*': ['watch']}
     }
   }).on('data', function (doc) {
     results.push(JSON.parse(doc).id)
@@ -141,7 +141,7 @@ test('do a simple scan with one word on a given field', function (t) {
   var results = []
   sis.scan({
     query: {
-      AND: [{'name': ['swiss']}]
+      AND: {'name': ['swiss']}
     }
   }).on('data', function (doc) {
     results.push(JSON.parse(doc).id)
@@ -157,7 +157,7 @@ test('do a simple scan with one word on a given field and filter', function (t) 
   var results = []
   sis.scan({
     query: {
-      AND: [{'name': ['swiss']}]
+      AND: {'name': ['swiss']}
     },
     filter: [{
       field: 'price',

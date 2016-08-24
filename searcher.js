@@ -86,7 +86,8 @@ module.exports = function (givenOptions, callback) {
     // Searcher.scan = require('./scanner.js').scan
 
     Searcher.scan = function (q) {
-      return scan(q, options)
+      // return scan(q, options)
+      return require('./search-stream.js').scan(q, options)
     }
 
     Searcher.searchStream = function (q) {
