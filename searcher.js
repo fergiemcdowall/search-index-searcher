@@ -30,7 +30,7 @@ var queryDefaults = {
   offset: 0,
   pageSize: 100,
   categories: [],
-  teaserHighlighter : function(string) {
+  teaserHighlighter: function (string) {
     return '<b>' + string + '</b>'
   }
 }
@@ -85,19 +85,19 @@ module.exports = function (givenOptions, callback) {
 
     // Searcher.scan = require('./scanner.js').scan
 
-    Searcher.scan = function(q) {
+    Searcher.scan = function (q) {
       return scan(q, options)
     }
 
-    Searcher.searchStream = function(q) {
+    Searcher.searchStream = function (q) {
       return require('./search-stream.js').searchStream(q, options)
     }
 
-    Searcher.bucketStream = function(q) {
+    Searcher.bucketStream = function (q) {
       return require('./search-stream.js').bucketStream(q, options)
     }
 
-    Searcher.categoryStream = function(q) {
+    Searcher.categoryStream = function (q) {
       return require('./search-stream.js').categoryStream(q, options)
     }
 
@@ -105,11 +105,7 @@ module.exports = function (givenOptions, callback) {
   })
 }
 
-
-
-
 var scan = function (q, options) {
-
   // Make a Transform stream stage to fetch docs from DB
   function FetchDocsFromDB () {
     Transform.call(this, { objectMode: true })
@@ -117,12 +113,13 @@ var scan = function (q, options) {
   util.inherits(FetchDocsFromDB, Transform)
   FetchDocsFromDB.prototype._transform = function (line, encoding, end) {
     var that = this
-    options.indexes.get('DOCUMENT￮' + line.toString() + '￮', function(err, doc) {
-      that.push(JSON.stringify(doc) + '\n')
+    options.indexes.get('DOCUMENT￮' + line.toString() + '￮', function (err, doc) {
+      if (!err) {
+        that.push(JSON.stringify(doc) + '\n')
+      }
       end()
     })
   }
-
   // Make a Transform stream stage to get an intersection stream
   function GetIntersectionStream (ANDKeys) {
     this.ANDKeys = ANDKeys
@@ -133,22 +130,24 @@ var scan = function (q, options) {
     var that = this
     async.map(
       this.ANDKeys,
-      function(item, callback) {
+      function (item, callback) {
         var ANDSetIDs = []
         options.indexes.createReadStream({gte: item[0], lte: item[1]})
-          .on('data', function(data) {
+          .on('data', function (data) {
             ANDSetIDs = ANDSetIDs.concat(data.value).sort()
           })
-          .on('end', function() {
+          .on('end', function () {
             callback(null, ANDSetIDs)
           })
       },
-      function(err, results) {
-        iats.getIntersectionStream(results).on('data', function(data) {
-          that.push(data)
-        }).on('end', function() {
-          end()
-        })
+      function (err, results) {
+        if (!err) {
+          iats.getIntersectionStream(results).on('data', function (data) {
+            that.push(data)
+          }).on('end', function () {
+            end()
+          })
+        }
       })
   }
 
@@ -164,7 +163,6 @@ var scan = function (q, options) {
   return s.pipe(new GetIntersectionStream(ANDKeys))
     .pipe(new FetchDocsFromDB())
 }
-
 
 var sort = function (sortName) {
   if (sortName === 'keyAsc') {
@@ -293,8 +291,8 @@ var getBuckets = function (q, frequencies, indexes, callback) {
 
         // var gte = ANDKeys[0].slice(0, -1)
         var gte = 'DF￮' + fieldName + '￮' + token + '￮' +
-          bucket.field + '￮' +
-          bucket.gte
+        bucket.field + '￮' +
+        bucket.gte
         var lte = 'DF￮' + fieldName + '￮' + token + '￮' +
           bucket.field + '￮' +
           bucket.lte + '￮'
@@ -407,13 +405,11 @@ var getEmptyResultSet = function (q) {
 }
 
 var getDocumentFreqencies = function (q, keySets, options, callback) {
-
   // Check document frequencies
   var keySetsUniq = keySets.map(function (set) {
     return set.AND.concat(set.NOT)
   })
   keySetsUniq = _uniqWith(_flatten(keySetsUniq), _isEqual)
-
   async.map(keySetsUniq, function (item, callback) {
     var uniq = []
     // loop through each AND condition
@@ -428,7 +424,6 @@ var getDocumentFreqencies = function (q, keySets, options, callback) {
         callback(null, {key: item, value: uniq.sort()})
       })
   }, function (asyncerr, results) {
-
     if (!results[0]) {
       // array is empty
       return callback(asyncerr, [])
@@ -553,15 +548,15 @@ var getResultsSortedByField = function (q, frequencies, keySet, options, callbac
     return {id: item}
   }), q, options, function (result) {
     result = result.sort(function (a, b) {
-      var aVal = a.document[sortKey];
-      var bVal = b.document[sortKey];
+      var aVal = a.document[sortKey]
+      var bVal = b.document[sortKey]
 
       if (aVal === bVal) {
-        return 0;
+        return 0
       } else if (sortDirection === 'asc') {
-        return aVal < bVal ? -1 : 1;
+        return aVal < bVal ? -1 : 1
       } else {
-        return aVal < bVal ? 1 : -1;
+        return aVal < bVal ? 1 : -1
       }
     }).slice((+q.offset), (+q.offset) + (+q.pageSize))
     return callback(null, result)
@@ -570,7 +565,6 @@ var getResultsSortedByField = function (q, frequencies, keySet, options, callbac
 
 // var getResults = function (q, frequencies, indexes, callbackX) {
 var getResultsSortedByTFIDF = function (q, frequencies, options, callbackX) {
-
   async.mapSeries(frequencies.docFreqs, function (item, callbacker) {
     var gte = item[1][0].replace(/^DF￮/, 'TF￮')
     var lte = item[1][1].replace(/^DF￮/, 'TF￮')
@@ -625,7 +619,6 @@ var getResultsSortedByTFIDF = function (q, frequencies, options, callbackX) {
         return callbacker(null, hits)
       })
   }, function (err, result) {
-
     // Safe OR results are now in frequencies.ORSets so this should now
     // be edited to read form frequencies.ORSets
 

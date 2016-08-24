@@ -2,12 +2,8 @@ const async = require('async')
 const Readable = require('stream').Readable
 const Transform = require('stream').Transform
 const util = require('util')
-const _uniqWith = require('lodash.uniqwith')
 const _defaults = require('lodash.defaults')
-const _find = require('lodash.find')
-const _flatten = require('lodash.flatten')
 const _intersection = require('lodash.intersection')
-const _isEqual = require('lodash.isequal')
 const _uniq = require('lodash.uniq')
 const _ = require('lodash')
 const JSONStream = require('JSONStream')
@@ -15,8 +11,7 @@ const JSONStream = require('JSONStream')
 // TODO
 // Unlodashify!
 
-
-exports.searchStream = function(q, options) {
+exports.searchStream = function (q, options) {
   q = _defaults(q || {}, {
     query: {
       AND: [{'*': ['*']}]
@@ -37,8 +32,7 @@ exports.searchStream = function(q, options) {
     .pipe(new SortTopScoringDocs())
 }
 
-
-exports.bucketStream = function(q, options) {
+exports.bucketStream = function (q, options) {
   q = _defaults(q || {}, {
     query: {
       AND: [{'*': ['*']}]
@@ -55,7 +49,7 @@ exports.bucketStream = function(q, options) {
     .pipe(new CalculateBuckets(options, q.filter || {}, q.buckets))
 }
 
-exports.categoryStream = function(q, options) {
+exports.categoryStream = function (q, options) {
   q = _defaults(q || {}, {
     query: {
       AND: [{'*': ['*']}]
@@ -72,7 +66,6 @@ exports.categoryStream = function(q, options) {
     .pipe(new CalculateCategories(options, q.filter || {}, q.category))
 }
 
-
 function CalculateResultSet (options, filter) {
   this.options = options
   this.filter = filter
@@ -82,7 +75,7 @@ util.inherits(CalculateResultSet, Transform)
 CalculateResultSet.prototype._transform = function (queryClause, encoding, end) {
   const that = this
   const frequencies = {}
-  
+
   async.map(getKeySet(queryClause.AND, this.filter), function (item, callback) {
     var include = []
     that.options.indexes.createReadStream({gte: item[0], lte: item[1] + '￮'})
@@ -90,7 +83,7 @@ CalculateResultSet.prototype._transform = function (queryClause, encoding, end) 
         include = uniqFast(include.concat(data.value))
       })
       .on('error', function (err) {
-        options.log.debug(err)
+        that.options.log.debug(err)
       })
       .on('end', function () {
         var fKey = item[0].split('￮')[1] + '￮' + item[0].split('￮')[2]
@@ -108,13 +101,13 @@ CalculateResultSet.prototype._transform = function (queryClause, encoding, end) 
           exclude = uniqFast(exclude.concat(data.value))
         })
         .on('error', function (err) {
-          options.log.debug(err)
+          that.options.log.debug(err)
         })
         .on('end', function () {
           return callback(null, exclude.sort())
         })
     }, function (asyncerr, excludeResults) {
-      excludeResults.forEach(function(excludeSet) {
+      excludeResults.forEach(function (excludeSet) {
         include = _.difference(include, excludeSet)
       })
       that.push(JSON.stringify({
@@ -123,8 +116,8 @@ CalculateResultSet.prototype._transform = function (queryClause, encoding, end) 
         termFrequencies: frequencies,
         BOOST: queryClause.BOOST || 0
       }))
-     return end()
-    })    
+      return end()
+    })
   })
 }
 
@@ -140,7 +133,7 @@ CalculateTopScoringDocs.prototype._transform = function (clauseSet, encoding, en
   const lowestFrequency = Object.keys(clauseSet.termFrequencies)
     .map(function (key) {
       return [key, clauseSet.termFrequencies[key]]
-    }).sort(function(a, b) {
+    }).sort(function (a, b) {
       return a[1] - b[1]
     })[0]
   const gte = 'TF￮' + lowestFrequency[0] + '￮￮'
@@ -155,15 +148,16 @@ CalculateTopScoringDocs.prototype._transform = function (clauseSet, encoding, en
       var intersections = []
       // Do intersection and pagination cutoffs here- only push
       // results that are in the resultset
-      for (var i = 0; ((i < data.value.length) && (intersections.length < that.seekLimit)); i++) {
-        if (_.sortedIndexOf(clauseSet.set, data.value[i][1]) != -1) {
+      for (var i = 0
+        ; ((i < data.value.length) && (intersections.length < that.seekLimit)); i++) {
+        if (_.sortedIndexOf(clauseSet.set, data.value[i][1]) !== -1) {
           intersections.push(data.value[i])
         }
       }
       topScoringDocs = topScoringDocs.concat(intersections)
     })
     .on('error', function (err) {
-      options.log.debug(err)
+      that.options.log.debug(err)
     })
     .on('end', function () {
       // fetch document vectors for the highest scores and work out
@@ -173,7 +167,6 @@ CalculateTopScoringDocs.prototype._transform = function (clauseSet, encoding, en
       end()
     })
 }
-
 
 function ScoreTopScoringDocs (options, seekLimit) {
   this.options = options
@@ -186,30 +179,31 @@ ScoreTopScoringDocs.prototype._transform = function (clause, encoding, end) {
   const that = this
   clause = JSON.parse(clause)
   var fields = Object.keys(clause.queryClause.AND)
-  async.each(clause.topScoringDocs, function(docID, nextDocCallback) {
+  async.each(clause.topScoringDocs, function (docID, nextDocCallback) {
     docID = docID[1]
-    async.map(fields, function(field, callback) {
+    async.map(fields, function (field, callback) {
       that.options.indexes.get(
-        'DOCUMENT-VECTOR￮' + docID + '￮' + field + '￮', function(err, docVector) {
+        'DOCUMENT-VECTOR￮' + docID + '￮' + field + '￮', function (err, docVector) {
           var vector = {}
           docVector.forEach(function (element) {
-            if (clause.queryClause.AND[field].indexOf(element[0][0]) != -1) {
+            if (clause.queryClause.AND[field].indexOf(element[0][0]) !== -1) {
               vector[field + '￮' + element[0]] = element[1]
             }
           })
           return callback(err, vector)
         })
-    }, function(err, results) {
+    }, function (err, results) {
+      if (err) return nextDocCallback(err)
       that.options.indexes.get(
-        'DOCUMENT￮' + docID + '￮', function(err, doc) {
+        'DOCUMENT￮' + docID + '￮', function (err, doc) {
           var tfidf = {}
-          Object.keys(clause.termFrequencies).forEach(function(key) {
+          Object.keys(clause.termFrequencies).forEach(function (key) {
             var tf = +clause.termFrequencies[key]
             var df = +results[0][key]
-            var idf = Math.log10(1 + (1/df))
+            var idf = Math.log10(1 + (1 / df))
             tfidf[key] = tf * idf
           })
-          var score = (Object.keys(tfidf).reduce(function(prev, cur) {
+          var score = (Object.keys(tfidf).reduce(function (prev, cur) {
             return (tfidf[prev] || 0) + tfidf[cur]
           }, 0) / Object.keys(tfidf).length)
           const document = {
@@ -225,11 +219,13 @@ ScoreTopScoringDocs.prototype._transform = function (clause, encoding, end) {
           return nextDocCallback(err)
         })
     })
-  }, function(err) {
+  }, function (err) {
+    if (err) {
+      // do something clever
+    }
     return end()
   })
 }
-
 
 function SortTopScoringDocs (options) {
   this.resultSet = []
@@ -243,20 +239,19 @@ SortTopScoringDocs.prototype._transform = function (doc, encoding, end) {
 }
 SortTopScoringDocs.prototype._flush = function (end) {
   var that = this
-  this.resultSet = this.resultSet.sort(function(a, b) {
+  this.resultSet = this.resultSet.sort(function (a, b) {
     if (a.score.score < b.score.score) return 1
     if (a.score.score > b.score.score) return -1
     if (a.document.id < b.document.id) return 1
     if (a.document.id > b.document.id) return -1
     return 0
   })
-  this.resultSet.forEach(function(hit) {
+  this.resultSet.forEach(function (hit) {
     that.push(JSON.stringify(hit, null, 2))
   })
   this.push(JSON.stringify({metadata: {totalHits: 'tbs'}}))
   return end()
 }
-
 
 function CalculateBuckets (options, filter, requestedBuckets) {
   this.buckets = requestedBuckets || []
@@ -274,21 +269,19 @@ CalculateBuckets.prototype._transform = function (queryClause, encoding, end) {
   const lowestFrequencyKey = Object.keys(queryClause.termFrequencies)
     .map(function (key) {
       return [key, queryClause.termFrequencies[key]]
-    }).sort(function(a, b) {
+    }).sort(function (a, b) {
       return a[1] - b[1]
     })[0]
   async.map(that.buckets, function (bucket, bucketProcessed) {
     var fieldName = lowestFrequencyKey[0].split('￮')[0]
     var token = lowestFrequencyKey[0].split('￮')[1]
     var gte = 'DF￮' + fieldName + '￮' + token + '￮' +
-      bucket.field + '￮' +
-      bucket.gte
+    bucket.field + '￮' +
+    bucket.gte
     var lte = 'DF￮' + fieldName + '￮' + token + '￮' +
       bucket.field + '￮' +
       bucket.lte + '￮'
-
     // TODO: add some logic to see if keys are within ranges before doing a lookup
-
     that.options.indexes.createReadStream({gte: gte, lte: lte})
       .on('data', function (data) {
         var IDSet = _intersection(data.value, queryClause.set)
@@ -296,26 +289,26 @@ CalculateBuckets.prototype._transform = function (queryClause, encoding, end) {
           bucket.IDSet = bucket.IDSet || []
           bucket.IDSet = _uniq(bucket.IDSet.concat(IDSet).sort())
         }
-
         // TODO: make loop aware of last iteration so that stream can
         // be pushed before _flush
-
       })
       .on('close', function () {
         return bucketProcessed(null)
       })
   }, function (err) {
+    if (err) {
+      // what to do?
+    }
     return end()
   })
 }
 CalculateBuckets.prototype._flush = function (end) {
   var that = this
-  this.buckets.forEach(function(bucket) {
+  this.buckets.forEach(function (bucket) {
     that.push(JSON.stringify(bucket))
   })
   return end()
 }
-
 
 function CalculateCategories (options, filter, category) {
   category.values = []
@@ -334,7 +327,7 @@ CalculateCategories.prototype._transform = function (queryClause, encoding, end)
   const lowestFrequencyKey = Object.keys(queryClause.termFrequencies)
     .map(function (key) {
       return [key, queryClause.termFrequencies[key]]
-    }).sort(function(a, b) {
+    }).sort(function (a, b) {
       return a[1] - b[1]
     })[0]
   // async.map(that.categories, function (category, categoryProcessed) {
@@ -344,9 +337,7 @@ CalculateCategories.prototype._transform = function (queryClause, encoding, end)
     this.category.field + '￮'
   var lte = 'DF￮' + fieldName + '￮' + token + '￮' +
     this.category.field + '￮￮'
-
   this.category.values = this.category.values || []
-
   // TODO: add some logic to see if keys are within ranges before doing a lookup
   that.options.indexes.createReadStream({gte: gte, lte: lte})
     .on('data', function (data) {
@@ -358,14 +349,11 @@ CalculateCategories.prototype._transform = function (queryClause, encoding, end)
           value: data.value
         })
       }
-
       // TODO: make loop aware of last iteration so that stream can
       // be pushed before _flush
-
     })
     .on('close', function () {
       return end()
-
     })
 }
 CalculateCategories.prototype._flush = function (end) {
@@ -374,24 +362,23 @@ CalculateCategories.prototype._flush = function (end) {
     this.category.values.map(function (elem) {
       elem.value = elem.value.length
       return elem
-    })    
+    })
   }
   this.category.values.sort(this.category.sort)
   this.category.values =
     this.category.values.slice(0, this.category.limit ||
-                               this.category.values.length)
+      this.category.values.length)
   if (!this.category.set) {
     this.category.values.map(function (elem) {
       elem.value = elem.value.length
       return elem
-    })    
+    })
   }
   this.category.values.forEach(function (elem) {
     that.push(elem)
   })
   return end()
 }
-
 
 var getKeySet = function (clause, filter) {
   var keySet = []
@@ -417,7 +404,6 @@ var getKeySet = function (clause, filter) {
   return keySet
 }
 
-
 // supposedly fastest way to get unique values in an array
 // http://stackoverflow.com/questions/9229645/remove-duplicates-from-javascript-array
 var uniqFast = function (a) {
@@ -434,4 +420,3 @@ var uniqFast = function (a) {
   }
   return out
 }
-

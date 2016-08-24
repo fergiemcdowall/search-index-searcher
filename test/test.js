@@ -22,21 +22,21 @@ const batch = [
   },
   {
     id: '3',
-    name: 'Versace Men\'s Swiss',
-    description: 'Versace Men\'s Swiss Chronograph Mystique Sport Two-Tone Ion-Plated Stainless Steel Bracelet Watch',
+    name: "Versace Men's Swiss",
+    description: "Versace Men's Swiss Chronograph Mystique Sport Two-Tone Ion-Plated Stainless Steel Bracelet Watch",
     price: '4716',
     age: '8293'
   },
   {
     id: '4',
-    name: 'CHARRIOL Men\'s Swiss Alexandre',
+    name: "CHARRIOL Men's Swiss Alexandre",
     description: 'With CHARRIOLs signature twisted cables, the Alexander C timepiece collection is a must-have piece for lovers of the famed brand.',
     price: '2132',
     age: '33342'
   },
   {
     id: '5',
-    name: 'Ferragamo Men\'s Swiss 1898',
+    name: "Ferragamo Men's Swiss 1898",
     description: 'The 1898 timepiece collection from Ferragamo offers timeless luxury.',
     price: '99999',
     age: '33342'
@@ -58,14 +58,14 @@ const batch = [
   {
     id: '8',
     name: 'Invicta Bolt Zeus ',
-    description: 'Invicta offers an upscale timepiece that\'s as full of substance as it is style. From the Bolt Zeus collection.',
+    description: "Invicta offers an upscale timepiece that's as full of substance as it is style. From the Bolt Zeus collection.",
     price: '8767',
     age: '33342'
   },
   {
     id: '9',
     name: 'Victorinox Night Vision ',
-    description: 'Never get left in the dark with Victorinox Swiss Army\'s Night Vision watch. First at Macy\'s!',
+    description: "Never get left in the dark with Victorinox Swiss Army's Night Vision watch. First at Macy's!",
     price: '1000',
     age: '33342'
   },
@@ -75,14 +75,14 @@ const batch = [
     description: 'Endlessly sophisticated in materials and design, this Emporio Armani Swiss watch features high-end timekeeping with moon phase movement and calendar tracking.',
     price: '30000',
     age: '33342'
-  },
+  }
 ]
 
 test('initialize a search index', function (t) {
   t.plan(3)
   SearchIndex({
     indexPath: sandbox + '/si'
-  }, function(err, thisSi) {
+  }, function (err, thisSi) {
     t.error(err)
     thisSi.add(batch, {
       fieldOptions: [{
@@ -91,7 +91,7 @@ test('initialize a search index', function (t) {
       }]
     }, function (err) {
       t.error(err)
-      thisSi.close(function(err){
+      thisSi.close(function (err) {
         t.error(err)
       })
     })
@@ -102,12 +102,11 @@ test('initialize a searcher', function (t) {
   t.plan(1)
   SearchIndexSearcher({
     indexPath: sandbox + '/si'
-  }, function(err, thisSis) {
+  }, function (err, thisSis) {
     t.error(err)
     sis = thisSis
   })
 })
-
 
 test('do a simple scan', function (t) {
   t.plan(1)
