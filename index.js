@@ -66,7 +66,7 @@ module.exports = function (givenOptions, callback) {
         .pipe(new CalculateCategories(options, q.filter || {}, q.category))
     }
 
-    Replicator.dbReadStream = function (ops) {
+    Searcher.dbReadStream = function (ops) {
       ops = _defaults(ops || {}, {gzip: false})
       if (ops.gzip) {
         return options.indexes.createReadStream()
