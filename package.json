@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/fergiemcdowall/search-index-searcher#readme",
   "dependencies": {
+    "JSONStream": "^1.1.4",
     "async": "^2.0.1",
     "bunyan": "^1.8.1",
     "intersect-arrays-to-stream": "0.0.3",
