@@ -8,7 +8,9 @@ const JSONStream = require('JSONStream')
 const Readable = require('stream').Readable
 const ScoreTopScoringDocs = require('./lib/ScoreTopScoringDocs.js').ScoreTopScoringDocs
 const SortTopScoringDocs = require('./lib/SortTopScoringDocs.js').SortTopScoringDocs
+const _defaults = require('lodash.defaults')
 const siUtil = require('./lib/siUtil.js')
+const zlib = require('zlib')
 
 module.exports = function (givenOptions, callback) {
   siUtil.getOptions(givenOptions, function (err, options) {
@@ -27,7 +29,7 @@ module.exports = function (givenOptions, callback) {
         .pipe(new FetchDocsFromDB(options))
     }
 
-    Searcher.searchStream = function (q) {
+    Searcher.search = function (q) {
       q = siUtil.getQueryDefaults(q)
       const s = new Readable()
       q.query.forEach(function (clause) {
@@ -75,6 +77,18 @@ module.exports = function (givenOptions, callback) {
       } else {
         return options.indexes.createReadStream()
       }
+    }
+
+    Searcher.close = function (callback) {
+      options.indexes.close(function (err) {
+        while (!options.indexes.isClosed()) {
+          options.log.debug('closing...')
+        }
+        if (options.indexes.isClosed()) {
+          options.log.debug('closed...')
+          callback(err)
+        }
+      })
     }
 
     return callback(err, Searcher)
