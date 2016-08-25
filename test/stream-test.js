@@ -111,23 +111,6 @@ test('initialize a searcher', function (t) {
   })
 })
 
-test('do a simple search', function (t) {
-  t.plan(2)
-  sis.search({
-    query: [{
-      AND: {'*': ['swiss', 'watch']}
-    }]
-  }, function (err, results) {
-    t.error(err)
-    t.looseEqual(
-      results.hits.map(function (item) {
-        return item.document.id
-      }),
-      [ '3', '10', '9', '2' ]
-    )
-  })
-})
-
 test('do a simple streamy search', function (t) {
   t.plan(1)
   const results = []
