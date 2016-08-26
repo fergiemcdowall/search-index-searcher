@@ -13,7 +13,7 @@
     "searcher"
   ],
   "scripts": {
-    "test": "export SANDBOX=test/sandbox && rm -rf $SANDBOX && mkdir $SANDBOX && tape test/test.js test/stream-test.js && standard"
+    "test": "export SANDBOX=test/sandbox && rm -rf $SANDBOX && mkdir $SANDBOX && tape test/*.js && standard"
   },
   "author": "Fergus McDowall",
   "license": "MIT",
