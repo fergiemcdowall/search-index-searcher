@@ -1,4 +1,4 @@
-const SearchIndex = require('search-index')
+const SearchIndexAdder = require('search-index-adder')
 const SearchIndexSearcher = require('../')
 const test = require('tape')
 const sandbox = process.env.SANDBOX || 'test/sandbox'
@@ -80,7 +80,7 @@ const batch = [
 
 test('initialize a search index', function (t) {
   t.plan(3)
-  SearchIndex({
+  SearchIndexAdder({
     indexPath: sandbox + '/si'
   }, function (err, thisSi) {
     t.error(err)
