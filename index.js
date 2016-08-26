@@ -32,6 +32,10 @@ module.exports = function (givenOptions, callback) {
     Searcher.search = function (q) {
       q = siUtil.getQueryDefaults(q)
       const s = new Readable()
+      // more forgivable querying
+      if (Object.prototype.toString.call(q.query) !== '[object Array]') {
+        q.query = [q.query]
+      }
       q.query.forEach(function (clause) {
         s.push(JSON.stringify(clause))
       })

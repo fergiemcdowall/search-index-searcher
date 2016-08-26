@@ -114,7 +114,7 @@ test('initialize a searcher', function (t) {
 test('do a simple streamy search', function (t) {
   t.plan(1)
   const results = []
-  sis.searchStream({
+  sis.search({
     query: [{
       AND: {'*': ['swiss', 'watch']}
     }],
@@ -137,7 +137,7 @@ test('do a simple streamy search', function (t) {
 test('do a simple search with NOT', function (t) {
   t.plan(1)
   const results = []
-  sis.searchStream({
+  sis.search({
     query: [{
       AND: {'*': ['swiss', 'watch']},
       NOT: {'description': ['timekeeping']}
@@ -161,7 +161,7 @@ test('do a simple search with NOT', function (t) {
 test('do a simple search with NOT and filter', function (t) {
   t.plan(1)
   const results = []
-  sis.searchStream({
+  sis.search({
     query: [{
       AND: {'*': ['swiss', 'watch']},
       NOT: {'description': ['timekeeping']}
@@ -190,7 +190,7 @@ test('do a simple search with NOT and filter', function (t) {
 test('do a simple search with NOT and two filters', function (t) {
   t.plan(1)
   const results = []
-  sis.searchStream({
+  sis.search({
     query: [{
       AND: {'*': ['swiss', 'watch']},
       NOT: {'description': ['timekeeping']}
@@ -226,7 +226,7 @@ test('do a simple search with NOT and two filters', function (t) {
 test('search with OR', function (t) {
   t.plan(1)
   const results = []
-  sis.searchStream({
+  sis.search({
     query: [{
       AND: {'*': ['swiss', 'watch']}
     }, {
