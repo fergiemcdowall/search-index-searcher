@@ -2,6 +2,8 @@ const SearchIndexAdder = require('search-index-adder')
 const SearchIndexSearcher = require('../')
 const test = require('tape')
 const sandbox = process.env.SANDBOX || 'test/sandbox'
+const Readable = require('stream').Readable
+const JSONStream = require('JSONStream')
 
 var sis
 
@@ -78,23 +80,34 @@ const batch = [
   }
 ]
 
+const s = new Readable()
+batch.forEach(function (item) {
+  s.push(JSON.stringify(item))
+})
+s.push(null)
+
 test('initialize a search index', function (t) {
-  t.plan(3)
+  t.plan(13)
   SearchIndexAdder({
     indexPath: sandbox + '/si'
-  }, function (err, thisSi) {
+  }, function (err, indexer) {
     t.error(err)
-    thisSi.add(batch, {
-      fieldOptions: [{
-        fieldName: 'price',
-        filter: true
-      }]
-    }, function (err) {
-      t.error(err)
-      thisSi.close(function (err) {
-        t.error(err)
+    s.pipe(JSONStream.parse())
+      .pipe(indexer.defaultPipeline())
+      .pipe(indexer.createWriteStream2({
+        fieldOptions: [{
+          fieldName: 'price',
+          filter: true
+        }]
+      }))
+      .on('data', function (data) {
+        t.ok(true, ' data recieved')
       })
-    })
+      .on('end', function () {
+        indexer.close(function (err) {
+          t.error(err)
+        })
+      })
   })
 })
 
@@ -149,8 +162,6 @@ test('do a simple scan with one word on a given field', function (t) {
     t.looseEqual(results, [ '10', '2', '3', '4', '5' ])
   })
 })
-
-// TODO: make filters work
 
 test('do a simple scan with one word on a given field and filter', function (t) {
   t.plan(1)
