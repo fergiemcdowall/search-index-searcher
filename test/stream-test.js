@@ -96,11 +96,9 @@ test('initialize a search index', function (t) {
       .pipe(indexer.defaultPipeline())
       .pipe(indexer.createWriteStream2({
         fieldOptions: [{
-          fieldName: 'price',
-          filter: true
+          fieldName: 'price'
         }, {
-          fieldName: 'age',
-          filter: true
+          fieldName: 'age'
         }]
       }))
       .on('data', function (data) {
@@ -129,7 +127,7 @@ test('do a simple streamy search', function (t) {
   const results = []
   sis.search({
     query: [{
-      AND: {'*': ['swiss', 'watch']}
+      AND: {'*': ['swiss', 'watch']} // should be watch
     }],
     pageSize: 10
   }).on('data', function (thing) {
@@ -176,15 +174,15 @@ test('do a simple search with NOT and filter', function (t) {
   const results = []
   sis.search({
     query: [{
-      AND: {'*': ['swiss', 'watch']},
+      AND: {
+        '*': ['swiss', 'watch'],
+        price: [{
+          gte: '3',
+          lte: '5'
+        }]
+      },
       NOT: {'description': ['timekeeping']}
-    }],
-    filter: [{
-      field: 'price',
-      gte: '3',
-      lte: '5'
-    }],
-    pageSize: 10
+    }]
   }).on('data', function (thing) {
     thing = JSON.parse(thing)
     if (!thing.metadata) {
@@ -205,21 +203,19 @@ test('do a simple search with NOT and two filters', function (t) {
   const results = []
   sis.search({
     query: [{
-      AND: {'*': ['swiss', 'watch']},
+      AND: {
+        '*': ['swiss', 'watch'],
+        price: [{
+          gte: '20',
+          lte: '9'
+        }],
+        age: [{
+          gte: '30',
+          lte: '4'
+        }]
+      },
       NOT: {'description': ['timekeeping']}
     }],
-    filter: [
-      {
-        field: 'price',
-        gte: '2',
-        lte: '9'
-      },
-      {
-        field: 'age',
-        gte: '3',
-        lte: '4'
-      }
-    ],
     pageSize: 10
   }).on('data', function (thing) {
     thing = JSON.parse(thing)
@@ -269,13 +265,14 @@ test('buckets', function (t) {
     buckets: [{
       field: 'price',
       gte: 2,
-      lte: 3
+      lte: 3,
+      set: true
     }]
   }).on('data', function (thing) {
-    thing = JSON.parse(thing)
+    // thing = JSON.parse(thing)
     t.looseEqual(
       thing,
-      { field: 'price', gte: 2, lte: 3, IDSet: [ '1', '10', '4', '7' ] }
+      { field: 'price', set: true, gte: 2, lte: 3, value: [ '1', '10', '4', '7' ] }
     )
   })
 })
@@ -290,21 +287,22 @@ test('buckets', function (t) {
     buckets: [{
       field: 'price',
       gte: 2,
-      lte: 3
+      lte: 3,
+      set: true
     }, {
       field: 'price',
       gte: 6,
-      lte: 9
+      lte: 9,
+      set: true
     }]
   }).on('data', function (thing) {
-    thing = JSON.parse(thing)
     result.push(thing)
   }).on('end', function () {
     t.looseEqual(
       result,
       [
-        { field: 'price', gte: 2, lte: 3, IDSet: [ '1', '10', '4', '7' ] },
-        { field: 'price', gte: 6, lte: 9, IDSet: [ '2', '5', '8' ] }
+        { field: 'price', gte: 2, lte: 3, set: true, value: [ '1', '10', '4', '7' ] },
+        { field: 'price', gte: 6, lte: 9, set: true, value: [ '2', '5', '8' ] }
       ]
     )
   })
@@ -320,21 +318,22 @@ test('two buckets', function (t) {
     buckets: [{
       field: 'price',
       gte: 2,
-      lte: 3
+      lte: 3,
+      set: true
     }, {
       field: 'price',
       gte: 6,
-      lte: 9
+      lte: 9,
+      set: true
     }]
   }).on('data', function (thing) {
-    thing = JSON.parse(thing)
     result.push(thing)
   }).on('end', function () {
     t.looseEqual(
       result,
       [
-        { field: 'price', gte: 2, lte: 3, IDSet: [ '10' ] },
-        { field: 'price', gte: 6, lte: 9, IDSet: [ '2' ] }
+        { field: 'price', gte: 2, set: true, lte: 3, value: [ '10' ] },
+        { field: 'price', gte: 6, set: true, lte: 9, value: [ '2' ] }
       ]
     )
   })
@@ -352,21 +351,22 @@ test('two buckets plus OR', function (t) {
     buckets: [{
       field: 'price',
       gte: 2,
-      lte: 3
+      lte: 3,
+      set: true
     }, {
       field: 'price',
       gte: 6,
-      lte: 9
+      lte: 9,
+      set: true
     }]
   }).on('data', function (thing) {
-    thing = JSON.parse(thing)
     result.push(thing)
   }).on('end', function () {
     t.looseEqual(
       result,
       [
-        { field: 'price', gte: 2, lte: 3, IDSet: [ '10', '7' ] },
-        { field: 'price', gte: 6, lte: 9, IDSet: [ '2' ] }
+        { field: 'price', gte: 2, set: true, lte: 3, value: [ '10', '7' ] },
+        { field: 'price', gte: 6, set: true, lte: 9, value: [ '2' ] }
       ]
     )
   })
@@ -384,26 +384,28 @@ test('three buckets plus OR', function (t) {
     buckets: [{
       field: 'price',
       gte: 2,
-      lte: 3
+      lte: 3,
+      set: true
     }, {
       field: 'price',
       gte: 6,
-      lte: 9
+      lte: 9,
+      set: true
     }, {
       field: 'age',
       gte: 5,
-      lte: 9
+      lte: 9,
+      set: true
     }]
   }).on('data', function (thing) {
-    thing = JSON.parse(thing)
     result.push(thing)
   }).on('end', function () {
     t.looseEqual(
       result,
       [
-        { field: 'price', gte: 2, lte: 3, IDSet: [ '10', '7' ] },
-        { field: 'price', gte: 6, lte: 9, IDSet: [ '2' ] },
-        { field: 'age', gte: 5, lte: 9, IDSet: [ '3' ] }
+        { field: 'price', gte: 2, lte: 3, set: true, value: [ '10', '7' ] },
+        { field: 'price', gte: 6, lte: 9, set: true, value: [ '2' ] },
+        { field: 'age', gte: 5, lte: 9, set: true, value: [ '3' ] }
       ]
     )
   })
@@ -427,7 +429,7 @@ test('categories with set', function (t) {
       result,
       // TODO- look at ordering of values (should be alphabetical)
       [
-        { key: '33342', value: [ '2', '4', '5', '9', '10' ] },
+        { key: '33342', value: [ '2', '9', '10' ] },
         { key: '8293', value: [ '3' ] }
       ]
     )
@@ -487,29 +489,29 @@ test('categories with set', function (t) {
 //   })
 // })
 
-// test('categories with value', function (t) {
-//   t.plan(1)
-//   var result = []
-//   sis.categoryStream({
-//     query: [{
-//       AND: {'*': ['*']}
-//     }],
-//     category: {
-//       field: 'age',
-//       sort: function (a, b) {
-//         return b.value - a.value
-//       }
-//     }
-//   }).on('data', function (thing) {
-//     result.push(thing)
-//   }).on('end', function () {
-//     t.looseEqual(
-//       result,
-//       [
-//         { key: '33342', value: 8 },
-//         { key: '8293', value: 1 },
-//         { key: '346', value: 1 }
-//       ]
-//     )
-//   })
-// })
+test('categories with value', function (t) {
+  t.plan(1)
+  var result = []
+  sis.categoryStream({
+    query: [{
+      AND: {'*': ['*']}
+    }],
+    category: {
+      field: 'age',
+      sort: function (a, b) {
+        return b.value - a.value
+      }
+    }
+  }).on('data', function (thing) {
+    result.push(thing)
+  }).on('end', function () {
+    t.looseEqual(
+      result,
+      [
+        { key: '33342', value: 8 },
+        { key: '346', value: 1 },
+        { key: '8293', value: 1 }
+      ]
+    )
+  })
+})

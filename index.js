@@ -1,6 +1,7 @@
 const CalculateBuckets = require('./lib/CalculateBuckets.js').CalculateBuckets
 const CalculateCategories = require('./lib/CalculateCategories.js').CalculateCategories
-const CalculateResultSet = require('./lib/CalculateResultSet.js').CalculateResultSet
+const CalculateResultSetPerClause = require('./lib/CalculateResultSetPerClause.js').CalculateResultSetPerClause
+const CalculateEntireResultSet = require('./lib/CalculateEntireResultSet.js').CalculateEntireResultSet
 const CalculateTopScoringDocs = require('./lib/CalculateTopScoringDocs.js').CalculateTopScoringDocs
 const FetchDocsFromDB = require('./lib/FetchDocsFromDB.js').FetchDocsFromDB
 const GetIntersectionStream = require('./lib/GetIntersectionStream.js').GetIntersectionStream
@@ -42,7 +43,7 @@ module.exports = function (givenOptions, callback) {
       s.push(null)
       return s
         .pipe(JSONStream.parse())
-        .pipe(new CalculateResultSet(options, q.filter || {}))
+        .pipe(new CalculateResultSetPerClause(options, q.filter || {}))
         .pipe(new CalculateTopScoringDocs(options, (q.offset + q.pageSize)))
         .pipe(new ScoreTopScoringDocs(options, (q.offset + q.pageSize)))
         .pipe(new SortTopScoringDocs())
@@ -56,7 +57,8 @@ module.exports = function (givenOptions, callback) {
       })
       s.push(null)
       return s.pipe(JSONStream.parse())
-        .pipe(new CalculateResultSet(options, q.filter || {}))
+        .pipe(new CalculateResultSetPerClause(options, q.filter || {}))
+        .pipe(new CalculateEntireResultSet(options))
         .pipe(new CalculateBuckets(options, q.filter || {}, q.buckets))
     }
 
@@ -68,8 +70,9 @@ module.exports = function (givenOptions, callback) {
       })
       s.push(null)
       return s.pipe(JSONStream.parse())
-        .pipe(new CalculateResultSet(options, q.filter || {}))
-        .pipe(new CalculateCategories(options, q.filter || {}, q.category))
+        .pipe(new CalculateResultSetPerClause(options, q.filter || {}))
+        .pipe(new CalculateEntireResultSet(options))
+        .pipe(new CalculateCategories(options, q.category))
     }
 
     Searcher.dbReadStream = function (ops) {

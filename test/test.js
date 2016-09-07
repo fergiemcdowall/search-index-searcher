@@ -168,13 +168,14 @@ test('do a simple scan with one word on a given field and filter', function (t) 
   var results = []
   sis.scan({
     query: {
-      AND: {'name': ['swiss']}
-    },
-    filter: [{
-      field: 'price',
-      gte: '3',
-      lte: '9'
-    }]
+      AND: {
+        name: ['swiss'],
+        price: [{
+          gte: '30000',
+          lte: '99'
+        }]
+      }
+    }
   }).on('data', function (doc) {
     results.push(JSON.parse(doc).id)
   }).on('end', function () {
