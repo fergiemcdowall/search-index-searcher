@@ -11,11 +11,16 @@ const ScoreTopScoringDocs = require('./lib/ScoreTopScoringDocs.js').ScoreTopScor
 const SortTopScoringDocs = require('./lib/SortTopScoringDocs.js').SortTopScoringDocs
 const _defaults = require('lodash.defaults')
 const siUtil = require('./lib/siUtil.js')
+const matcher = require('./lib/matcher.js')
 const zlib = require('zlib')
 
 module.exports = function (givenOptions, callback) {
   siUtil.getOptions(givenOptions, function (err, options) {
     var Searcher = {} // const?
+
+    Searcher.match = function (q) {
+      return matcher.match(q, options)
+    }
 
     Searcher.scan = function (q) {
       q = siUtil.getQueryDefaults(q)

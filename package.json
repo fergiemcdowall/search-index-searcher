@@ -25,6 +25,7 @@
     "JSONStream": "^1.1.4",
     "async": "^2.0.1",
     "bunyan": "^1.8.1",
+    "highland": "^3.0.0-beta.3",
     "intersect-arrays-to-stream": "0.0.3",
     "leveldown": "^1.4.6",
     "levelup": "^1.3.2",
