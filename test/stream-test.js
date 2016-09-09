@@ -251,7 +251,7 @@ test('search with OR', function (t) {
       results.map(function (item) {
         return item.document.id
       }),
-      [ '7', '9', '3', '2', '10' ]
+      [ '9', '7', '3', '2', '10' ]
     )
   })
 })
