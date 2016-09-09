@@ -3,7 +3,9 @@ const CalculateCategories = require('./lib/CalculateCategories.js').CalculateCat
 const CalculateResultSetPerClause = require('./lib/CalculateResultSetPerClause.js').CalculateResultSetPerClause
 const CalculateEntireResultSet = require('./lib/CalculateEntireResultSet.js').CalculateEntireResultSet
 const CalculateTopScoringDocs = require('./lib/CalculateTopScoringDocs.js').CalculateTopScoringDocs
+const MergeOrConditions = require('./lib/MergeOrConditions.js').MergeOrConditions
 const FetchDocsFromDB = require('./lib/FetchDocsFromDB.js').FetchDocsFromDB
+const FetchStoredDoc = require('./lib/FetchStoredDoc.js').FetchStoredDoc
 const GetIntersectionStream = require('./lib/GetIntersectionStream.js').GetIntersectionStream
 const JSONStream = require('JSONStream')
 const Readable = require('stream').Readable
@@ -50,8 +52,10 @@ module.exports = function (givenOptions, callback) {
         .pipe(JSONStream.parse())
         .pipe(new CalculateResultSetPerClause(options, q.filter || {}))
         .pipe(new CalculateTopScoringDocs(options, (q.offset + q.pageSize)))
-        .pipe(new ScoreTopScoringDocs(options, (q.offset + q.pageSize)))
+        .pipe(new ScoreTopScoringDocs(options))
+        .pipe(new MergeOrConditions())
         .pipe(new SortTopScoringDocs())
+        .pipe(new FetchStoredDoc(options))
     }
 
     Searcher.bucketStream = function (q) {
