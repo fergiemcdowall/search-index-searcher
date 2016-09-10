@@ -9,8 +9,9 @@ const FetchStoredDoc = require('./lib/FetchStoredDoc.js').FetchStoredDoc
 const GetIntersectionStream = require('./lib/GetIntersectionStream.js').GetIntersectionStream
 const JSONStream = require('JSONStream')
 const Readable = require('stream').Readable
-const ScoreTopScoringDocs = require('./lib/ScoreTopScoringDocs.js').ScoreTopScoringDocs
+const ScoreTopScoringDocsTFIDF = require('./lib/ScoreTopScoringDocsTFIDF.js').ScoreTopScoringDocsTFIDF
 const SortTopScoringDocs = require('./lib/SortTopScoringDocs.js').SortTopScoringDocs
+const ScoreDocsOnField = require('./lib/ScoreDocsOnField.js').ScoreDocsOnField
 const _defaults = require('lodash.defaults')
 const siUtil = require('./lib/siUtil.js')
 const matcher = require('./lib/matcher.js')
@@ -32,8 +33,7 @@ module.exports = function (givenOptions, callback) {
       s.push('init')
       s.push(null)
       return s.pipe(
-        new GetIntersectionStream(options,
-          siUtil.getKeySet(q.query.AND, q.filter || {})))
+        new GetIntersectionStream(options, siUtil.getKeySet(q.query.AND)))
         .pipe(new FetchDocsFromDB(options))
     }
 
@@ -48,14 +48,26 @@ module.exports = function (givenOptions, callback) {
         s.push(JSON.stringify(clause))
       })
       s.push(null)
-      return s
-        .pipe(JSONStream.parse())
-        .pipe(new CalculateResultSetPerClause(options, q.filter || {}))
-        .pipe(new CalculateTopScoringDocs(options, (q.offset + q.pageSize)))
-        .pipe(new ScoreTopScoringDocs(options))
-        .pipe(new MergeOrConditions())
-        .pipe(new SortTopScoringDocs())
-        .pipe(new FetchStoredDoc(options))
+
+      if (q.sort) {
+        return s
+          .pipe(JSONStream.parse())
+          .pipe(new CalculateResultSetPerClause(options))
+          .pipe(new CalculateTopScoringDocs(options, (q.offset + q.pageSize)))
+          .pipe(new ScoreDocsOnField(options, (q.offset + q.pageSize), q.sort))
+          .pipe(new MergeOrConditions(q))
+          .pipe(new SortTopScoringDocs(q))
+          .pipe(new FetchStoredDoc(options))
+      } else {
+        return s
+          .pipe(JSONStream.parse())
+          .pipe(new CalculateResultSetPerClause(options))
+          .pipe(new CalculateTopScoringDocs(options, (q.offset + q.pageSize)))
+          .pipe(new ScoreTopScoringDocsTFIDF(options))
+          .pipe(new MergeOrConditions(q))
+          .pipe(new SortTopScoringDocs(q))
+          .pipe(new FetchStoredDoc(options))
+      }
     }
 
     Searcher.bucketStream = function (q) {
