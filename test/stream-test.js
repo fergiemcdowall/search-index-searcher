@@ -1,9 +1,10 @@
+const JSONStream = require('JSONStream')
+const Readable = require('stream').Readable
 const SearchIndexAdder = require('search-index-adder')
 const SearchIndexSearcher = require('../')
-const test = require('tape')
+const logLevel = process.env.NODE_ENV || 'info'
 const sandbox = process.env.SANDBOX || 'test/sandbox'
-const Readable = require('stream').Readable
-const JSONStream = require('JSONStream')
+const test = require('tape')
 
 var sis
 
@@ -89,12 +90,13 @@ s.push(null)
 test('initialize a search index', function (t) {
   t.plan(13)
   SearchIndexAdder({
-    indexPath: sandbox + '/si-stream'
+    indexPath: sandbox + '/si-stream',
+    logLevel: logLevel
   }, function (err, indexer) {
     t.error(err)
     s.pipe(JSONStream.parse())
       .pipe(indexer.defaultPipeline())
-      .pipe(indexer.createWriteStream2({
+      .pipe(indexer.add({
         fieldOptions: [{
           fieldName: 'price'
         }, {
@@ -429,7 +431,7 @@ test('categories with set', function (t) {
       result,
       // TODO- look at ordering of values (should be alphabetical)
       [
-        { key: '33342', value: [ '2', '9', '10' ] },
+        { key: '33342', value: [ '10', '2', '9' ] },
         { key: '8293', value: [ '3' ] }
       ]
     )

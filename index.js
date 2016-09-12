@@ -37,6 +37,10 @@ module.exports = function (givenOptions, callback) {
         .pipe(new FetchDocsFromDB(options))
     }
 
+    Searcher.get = function (docID, callback) {
+      options.indexes.get('DOCUMENT￮' + docID + '￮', callback)
+    }
+
     Searcher.search = function (q) {
       q = siUtil.getQueryDefaults(q)
       const s = new Readable()
