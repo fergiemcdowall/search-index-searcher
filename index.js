@@ -39,13 +39,12 @@ module.exports = function (givenOptions, callback) {
 
     Searcher.get = function (docIDs) {
       var s = new Readable()
-      docIDs.forEach(function(id) {
+      docIDs.forEach(function (id) {
         s.push(id)
       })
       s.push(null)
       return s.pipe(new FetchDocsFromDB(options))
     }
-
 
     Searcher.search = function (q) {
       q = siUtil.getQueryDefaults(q)
