@@ -1,28 +1,29 @@
 const CalculateBuckets = require('./lib/CalculateBuckets.js').CalculateBuckets
 const CalculateCategories = require('./lib/CalculateCategories.js').CalculateCategories
-const CalculateResultSetPerClause = require('./lib/CalculateResultSetPerClause.js').CalculateResultSetPerClause
 const CalculateEntireResultSet = require('./lib/CalculateEntireResultSet.js').CalculateEntireResultSet
+const CalculateResultSetPerClause = require('./lib/CalculateResultSetPerClause.js').CalculateResultSetPerClause
 const CalculateTopScoringDocs = require('./lib/CalculateTopScoringDocs.js').CalculateTopScoringDocs
-const MergeOrConditions = require('./lib/MergeOrConditions.js').MergeOrConditions
 const FetchDocsFromDB = require('./lib/FetchDocsFromDB.js').FetchDocsFromDB
 const FetchStoredDoc = require('./lib/FetchStoredDoc.js').FetchStoredDoc
 const GetIntersectionStream = require('./lib/GetIntersectionStream.js').GetIntersectionStream
 const JSONStream = require('JSONStream')
+const MergeOrConditions = require('./lib/MergeOrConditions.js').MergeOrConditions
 const Readable = require('stream').Readable
+const ScoreDocsOnField = require('./lib/ScoreDocsOnField.js').ScoreDocsOnField
 const ScoreTopScoringDocsTFIDF = require('./lib/ScoreTopScoringDocsTFIDF.js').ScoreTopScoringDocsTFIDF
 const SortTopScoringDocs = require('./lib/SortTopScoringDocs.js').SortTopScoringDocs
-const ScoreDocsOnField = require('./lib/ScoreDocsOnField.js').ScoreDocsOnField
 const _defaults = require('lodash.defaults')
-const siUtil = require('./lib/siUtil.js')
+const bunyan = require('bunyan')
+const levelup = require('levelup')
 const matcher = require('./lib/matcher.js')
+const siUtil = require('./lib/siUtil.js')
+const sw = require('stopword')
 const zlib = require('zlib')
 
-module.exports = function (givenOptions, callback) {
-  siUtil.getOptions(givenOptions, function (err, options) {
-    var Searcher = {} // const?
-
+module.exports = function (givenOptions, moduleReady) {
+  const initModule = function (err, Searcher) {
     Searcher.match = function (q) {
-      return matcher.match(q, options)
+      return matcher.match(q, Searcher.options)
     }
 
     Searcher.scan = function (q) {
@@ -33,8 +34,8 @@ module.exports = function (givenOptions, callback) {
       s.push('init')
       s.push(null)
       return s.pipe(
-        new GetIntersectionStream(options, siUtil.getKeySet(q.query.AND)))
-        .pipe(new FetchDocsFromDB(options))
+        new GetIntersectionStream(Searcher.options, siUtil.getKeySet(q.query.AND)))
+        .pipe(new FetchDocsFromDB(Searcher.options))
     }
 
     Searcher.get = function (docIDs) {
@@ -43,7 +44,7 @@ module.exports = function (givenOptions, callback) {
         s.push(id)
       })
       s.push(null)
-      return s.pipe(new FetchDocsFromDB(options))
+      return s.pipe(new FetchDocsFromDB(Searcher.options))
     }
 
     Searcher.search = function (q) {
@@ -61,21 +62,21 @@ module.exports = function (givenOptions, callback) {
       if (q.sort) {
         return s
           .pipe(JSONStream.parse())
-          .pipe(new CalculateResultSetPerClause(options))
-          .pipe(new CalculateTopScoringDocs(options, (q.offset + q.pageSize)))
-          .pipe(new ScoreDocsOnField(options, (q.offset + q.pageSize), q.sort))
+          .pipe(new CalculateResultSetPerClause(Searcher.options))
+          .pipe(new CalculateTopScoringDocs(Searcher.options, (q.offset + q.pageSize)))
+          .pipe(new ScoreDocsOnField(Searcher.options, (q.offset + q.pageSize), q.sort))
           .pipe(new MergeOrConditions(q))
           .pipe(new SortTopScoringDocs(q))
-          .pipe(new FetchStoredDoc(options))
+          .pipe(new FetchStoredDoc(Searcher.options))
       } else {
         return s
           .pipe(JSONStream.parse())
-          .pipe(new CalculateResultSetPerClause(options))
-          .pipe(new CalculateTopScoringDocs(options, (q.offset + q.pageSize)))
-          .pipe(new ScoreTopScoringDocsTFIDF(options))
+          .pipe(new CalculateResultSetPerClause(Searcher.options))
+          .pipe(new CalculateTopScoringDocs(Searcher.options, (q.offset + q.pageSize)))
+          .pipe(new ScoreTopScoringDocsTFIDF(Searcher.options))
           .pipe(new MergeOrConditions(q))
           .pipe(new SortTopScoringDocs(q))
-          .pipe(new FetchStoredDoc(options))
+          .pipe(new FetchStoredDoc(Searcher.options))
       }
     }
 
@@ -87,9 +88,9 @@ module.exports = function (givenOptions, callback) {
       })
       s.push(null)
       return s.pipe(JSONStream.parse())
-        .pipe(new CalculateResultSetPerClause(options, q.filter || {}))
-        .pipe(new CalculateEntireResultSet(options))
-        .pipe(new CalculateBuckets(options, q.filter || {}, q.buckets))
+        .pipe(new CalculateResultSetPerClause(Searcher.options, q.filter || {}))
+        .pipe(new CalculateEntireResultSet(Searcher.options))
+        .pipe(new CalculateBuckets(Searcher.options, q.filter || {}, q.buckets))
     }
 
     Searcher.categoryStream = function (q) {
@@ -100,34 +101,67 @@ module.exports = function (givenOptions, callback) {
       })
       s.push(null)
       return s.pipe(JSONStream.parse())
-        .pipe(new CalculateResultSetPerClause(options, q.filter || {}))
-        .pipe(new CalculateEntireResultSet(options))
-        .pipe(new CalculateCategories(options, q.category))
+        .pipe(new CalculateResultSetPerClause(Searcher.options, q.filter || {}))
+        .pipe(new CalculateEntireResultSet(Searcher.options))
+        .pipe(new CalculateCategories(Searcher.options, q.category))
     }
 
     Searcher.dbReadStream = function (ops) {
       ops = _defaults(ops || {}, {gzip: false})
       if (ops.gzip) {
-        return options.indexes.createReadStream()
+        return Searcher.options.indexes.createReadStream()
           .pipe(JSONStream.stringify('', '\n', ''))
           .pipe(zlib.createGzip())
       } else {
-        return options.indexes.createReadStream()
+        return Searcher.options.indexes.createReadStream()
       }
     }
 
     Searcher.close = function (callback) {
-      options.indexes.close(function (err) {
-        while (!options.indexes.isClosed()) {
-          options.log.debug('closing...')
+      Searcher.options.indexes.close(function (err) {
+        while (!Searcher.options.indexes.isClosed()) {
+          Searcher.options.log.debug('closing...')
         }
-        if (options.indexes.isClosed()) {
-          options.log.debug('closed...')
+        if (Searcher.options.indexes.isClosed()) {
+          Searcher.options.log.debug('closed...')
           callback(err)
         }
       })
     }
 
-    return callback(err, Searcher)
+    return moduleReady(err, Searcher)
+  }
+
+  getOptions(givenOptions, function (err, Searcher) {
+    initModule(err, Searcher)
   })
+}
+
+const getOptions = function (options, done) {
+  var Searcher = {}
+  Searcher.options = _defaults(options, {
+    deletable: true,
+    fieldedSearch: true,
+    store: true,
+    indexPath: 'si',
+    logLevel: 'error',
+    nGramLength: 1,
+    nGramSeparator: ' ',
+    separator: /[\|' \.,\-|(\n)]+/,
+    stopwords: sw.en
+  })
+  options.log = bunyan.createLogger({
+    name: 'search-index',
+    level: options.logLevel
+  })
+  if (!options.indexes) {
+    levelup(Searcher.options.indexPath || 'si', {
+      valueEncoding: 'json'
+    }, function (err, db) {
+      Searcher.options.indexes = db
+      return done(err, Searcher)
+    })
+  } else {
+    return done(null, Searcher)
+  }
 }
