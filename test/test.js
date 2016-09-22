@@ -210,3 +210,13 @@ test('do a simple search with a simple string', function (t) {
     t.looseEqual(results, [ '9', '3', '2', '10' ])
   })
 })
+
+test('searching with no query returns everything, sorted by ID', function (t) {
+  t.plan(1)
+  var results = []
+  sis.search().on('data', function (doc) {
+    results.push(JSON.parse(doc).id)
+  }).on('end', function () {
+    t.looseEqual(results, [ '9', '8', '7', '6', '5', '4', '3', '2', '10', '1' ])
+  })
+})
