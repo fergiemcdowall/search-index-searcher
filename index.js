@@ -20,121 +20,115 @@ const siUtil = require('./lib/siUtil.js')
 const sw = require('stopword')
 const zlib = require('zlib')
 
-module.exports = function (givenOptions, moduleReady) {
-  const initModule = function (err, Searcher) {
-    Searcher.match = function (q) {
-      return matcher.match(q, Searcher.options)
-    }
-
-    Searcher.scan = function (q) {
-      q = siUtil.getQueryDefaults(q)
-      // just make this work for a simple one clause AND
-      // TODO: add filtering, NOTting, multi-clause AND
-      var s = new Readable()
-      s.push('init')
-      s.push(null)
-      return s.pipe(
-        new GetIntersectionStream(Searcher.options, siUtil.getKeySet(q.query.AND)))
-        .pipe(new FetchDocsFromDB(Searcher.options))
-    }
-
-    Searcher.get = function (docIDs) {
-      var s = new Readable()
-      docIDs.forEach(function (id) {
-        s.push(id)
-      })
-      s.push(null)
-      return s.pipe(new FetchDocsFromDB(Searcher.options))
-    }
-
-    Searcher.search = function (q) {
-      q = siUtil.getQueryDefaults(q)
-      const s = new Readable()
-      // more forgivable querying
-      if (Object.prototype.toString.call(q.query) !== '[object Array]') {
-        q.query = [q.query]
-      }
-      q.query.forEach(function (clause) {
-        s.push(JSON.stringify(clause))
-      })
-      s.push(null)
-
-      if (q.sort) {
-        return s
-          .pipe(JSONStream.parse())
-          .pipe(new CalculateResultSetPerClause(Searcher.options))
-          .pipe(new CalculateTopScoringDocs(Searcher.options, (q.offset + q.pageSize)))
-          .pipe(new ScoreDocsOnField(Searcher.options, (q.offset + q.pageSize), q.sort))
-          .pipe(new MergeOrConditions(q))
-          .pipe(new SortTopScoringDocs(q))
-          .pipe(new FetchStoredDoc(Searcher.options))
-      } else {
-        return s
-          .pipe(JSONStream.parse())
-          .pipe(new CalculateResultSetPerClause(Searcher.options))
-          .pipe(new CalculateTopScoringDocs(Searcher.options, (q.offset + q.pageSize)))
-          .pipe(new ScoreTopScoringDocsTFIDF(Searcher.options))
-          .pipe(new MergeOrConditions(q))
-          .pipe(new SortTopScoringDocs(q))
-          .pipe(new FetchStoredDoc(Searcher.options))
-      }
-    }
-
-    Searcher.bucketStream = function (q) {
-      q = siUtil.getQueryDefaults(q)
-      const s = new Readable()
-      q.query.forEach(function (clause) {
-        s.push(JSON.stringify(clause))
-      })
-      s.push(null)
-      return s.pipe(JSONStream.parse())
-        .pipe(new CalculateResultSetPerClause(Searcher.options, q.filter || {}))
-        .pipe(new CalculateEntireResultSet(Searcher.options))
-        .pipe(new CalculateBuckets(Searcher.options, q.filter || {}, q.buckets))
-    }
-
-    Searcher.categoryStream = function (q) {
-      q = siUtil.getQueryDefaults(q)
-      const s = new Readable()
-      q.query.forEach(function (clause) {
-        s.push(JSON.stringify(clause))
-      })
-      s.push(null)
-      return s.pipe(JSONStream.parse())
-        .pipe(new CalculateResultSetPerClause(Searcher.options, q.filter || {}))
-        .pipe(new CalculateEntireResultSet(Searcher.options))
-        .pipe(new CalculateCategories(Searcher.options, q.category))
-    }
-
-    Searcher.dbReadStream = function (ops) {
-      ops = _defaults(ops || {}, {gzip: false})
-      if (ops.gzip) {
-        return Searcher.options.indexes.createReadStream()
-          .pipe(JSONStream.stringify('', '\n', ''))
-          .pipe(zlib.createGzip())
-      } else {
-        return Searcher.options.indexes.createReadStream()
-      }
-    }
-
-    Searcher.close = function (callback) {
-      Searcher.options.indexes.close(function (err) {
-        while (!Searcher.options.indexes.isClosed()) {
-          Searcher.options.log.debug('closing...')
-        }
-        if (Searcher.options.indexes.isClosed()) {
-          Searcher.options.log.debug('closed...')
-          callback(err)
-        }
-      })
-    }
-
-    return moduleReady(err, Searcher)
+const initModule = function (err, Searcher, moduleReady) {
+  Searcher.bucketStream = function (q) {
+    q = siUtil.getQueryDefaults(q)
+    const s = new Readable()
+    q.query.forEach(function (clause) {
+      s.push(JSON.stringify(clause))
+    })
+    s.push(null)
+    return s.pipe(JSONStream.parse())
+      .pipe(new CalculateResultSetPerClause(Searcher.options, q.filter || {}))
+      .pipe(new CalculateEntireResultSet(Searcher.options))
+      .pipe(new CalculateBuckets(Searcher.options, q.filter || {}, q.buckets))
   }
 
-  getOptions(givenOptions, function (err, Searcher) {
-    initModule(err, Searcher)
-  })
+  Searcher.categoryStream = function (q) {
+    q = siUtil.getQueryDefaults(q)
+    const s = new Readable()
+    q.query.forEach(function (clause) {
+      s.push(JSON.stringify(clause))
+    })
+    s.push(null)
+    return s.pipe(JSONStream.parse())
+      .pipe(new CalculateResultSetPerClause(Searcher.options, q.filter || {}))
+      .pipe(new CalculateEntireResultSet(Searcher.options))
+      .pipe(new CalculateCategories(Searcher.options, q.category))
+  }
+
+  Searcher.close = function (callback) {
+    Searcher.options.indexes.close(function (err) {
+      while (!Searcher.options.indexes.isClosed()) {
+        Searcher.options.log.debug('closing...')
+      }
+      if (Searcher.options.indexes.isClosed()) {
+        Searcher.options.log.debug('closed...')
+        callback(err)
+      }
+    })
+  }
+
+  Searcher.dbReadStream = function (ops) {
+    ops = _defaults(ops || {}, {gzip: false})
+    if (ops.gzip) {
+      return Searcher.options.indexes.createReadStream()
+        .pipe(JSONStream.stringify('', '\n', ''))
+        .pipe(zlib.createGzip())
+    } else {
+      return Searcher.options.indexes.createReadStream()
+    }
+  }
+
+  Searcher.get = function (docIDs) {
+    var s = new Readable()
+    docIDs.forEach(function (id) {
+      s.push(id)
+    })
+    s.push(null)
+    return s.pipe(new FetchDocsFromDB(Searcher.options))
+  }
+
+  Searcher.match = function (q) {
+    return matcher.match(q, Searcher.options)
+  }
+
+  Searcher.search = function (q) {
+    q = siUtil.getQueryDefaults(q)
+    const s = new Readable()
+    // more forgivable querying
+    if (Object.prototype.toString.call(q.query) !== '[object Array]') {
+      q.query = [q.query]
+    }
+    q.query.forEach(function (clause) {
+      s.push(JSON.stringify(clause))
+    })
+    s.push(null)
+
+    if (q.sort) {
+      return s
+        .pipe(JSONStream.parse())
+        .pipe(new CalculateResultSetPerClause(Searcher.options))
+        .pipe(new CalculateTopScoringDocs(Searcher.options, (q.offset + q.pageSize)))
+        .pipe(new ScoreDocsOnField(Searcher.options, (q.offset + q.pageSize), q.sort))
+        .pipe(new MergeOrConditions(q))
+        .pipe(new SortTopScoringDocs(q))
+        .pipe(new FetchStoredDoc(Searcher.options))
+    } else {
+      return s
+        .pipe(JSONStream.parse())
+        .pipe(new CalculateResultSetPerClause(Searcher.options))
+        .pipe(new CalculateTopScoringDocs(Searcher.options, (q.offset + q.pageSize)))
+        .pipe(new ScoreTopScoringDocsTFIDF(Searcher.options))
+        .pipe(new MergeOrConditions(q))
+        .pipe(new SortTopScoringDocs(q))
+        .pipe(new FetchStoredDoc(Searcher.options))
+    }
+  }
+
+  Searcher.scan = function (q) {
+    q = siUtil.getQueryDefaults(q)
+    // just make this work for a simple one clause AND
+    // TODO: add filtering, NOTting, multi-clause AND
+    var s = new Readable()
+    s.push('init')
+    s.push(null)
+    return s.pipe(
+      new GetIntersectionStream(Searcher.options, siUtil.getKeySet(q.query.AND)))
+      .pipe(new FetchDocsFromDB(Searcher.options))
+  }
+
+  return moduleReady(err, Searcher)
 }
 
 const getOptions = function (options, done) {
@@ -164,4 +158,10 @@ const getOptions = function (options, done) {
   } else {
     return done(null, Searcher)
   }
+}
+
+module.exports = function (givenOptions, moduleReady) {
+  getOptions(givenOptions, function (err, Searcher) {
+    initModule(err, Searcher, moduleReady)
+  })
 }

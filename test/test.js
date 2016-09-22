@@ -184,3 +184,29 @@ test('do a simple scan with one word on a given field and filter', function (t) 
     t.looseEqual(results, [ '10', '2', '3', '5' ])
   })
 })
+
+test('do a simple search with a nicely formatted query object', function (t) {
+  t.plan(1)
+  var results = []
+  sis.search({
+    query: {
+      AND: {
+        '*': ['swiss', 'watch']
+      }
+    }
+  }).on('data', function (doc) {
+    results.push(JSON.parse(doc).id)
+  }).on('end', function () {
+    t.looseEqual(results, [ '9', '3', '2', '10' ])
+  })
+})
+
+test('do a simple search with a simple string', function (t) {
+  t.plan(1)
+  var results = []
+  sis.search('swiss watch').on('data', function (doc) {
+    results.push(JSON.parse(doc).id)
+  }).on('end', function () {
+    t.looseEqual(results, [ '9', '3', '2', '10' ])
+  })
+})
