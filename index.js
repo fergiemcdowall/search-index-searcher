@@ -18,7 +18,6 @@ const levelup = require('levelup')
 const matcher = require('./lib/matcher.js')
 const siUtil = require('./lib/siUtil.js')
 const sw = require('stopword')
-const zlib = require('zlib')
 
 const initModule = function (err, Searcher, moduleReady) {
   Searcher.bucketStream = function (q) {
@@ -59,15 +58,8 @@ const initModule = function (err, Searcher, moduleReady) {
     })
   }
 
-  Searcher.dbReadStream = function (ops) {
-    ops = _defaults(ops || {}, {gzip: false})
-    if (ops.gzip) {
-      return Searcher.options.indexes.createReadStream()
-        .pipe(JSONStream.stringify('', '\n', ''))
-        .pipe(zlib.createGzip())
-    } else {
-      return Searcher.options.indexes.createReadStream()
-    }
+  Searcher.dbReadStream = function () {
+    return Searcher.options.indexes.createReadStream()
   }
 
   Searcher.get = function (docIDs) {
