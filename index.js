@@ -3,6 +3,7 @@ const CalculateCategories = require('./lib/CalculateCategories.js').CalculateCat
 const CalculateEntireResultSet = require('./lib/CalculateEntireResultSet.js').CalculateEntireResultSet
 const CalculateResultSetPerClause = require('./lib/CalculateResultSetPerClause.js').CalculateResultSetPerClause
 const CalculateTopScoringDocs = require('./lib/CalculateTopScoringDocs.js').CalculateTopScoringDocs
+const CalculateTotalHits = require('./lib/CalculateTotalHits.js').CalculateTotalHits
 const FetchDocsFromDB = require('./lib/FetchDocsFromDB.js').FetchDocsFromDB
 const FetchStoredDoc = require('./lib/FetchStoredDoc.js').FetchStoredDoc
 const GetIntersectionStream = require('./lib/GetIntersectionStream.js').GetIntersectionStream
@@ -118,6 +119,21 @@ const initModule = function (err, Searcher, moduleReady) {
     return s.pipe(
       new GetIntersectionStream(Searcher.options, siUtil.getKeySet(q.query.AND)))
       .pipe(new FetchDocsFromDB(Searcher.options))
+  }
+
+  Searcher.totalHits = function (q, callback) {
+    q = siUtil.getQueryDefaults(q)
+    const s = new Readable()
+    q.query.forEach(function (clause) {
+      s.push(JSON.stringify(clause))
+    })
+    s.push(null)
+    s.pipe(JSONStream.parse())
+      .pipe(new CalculateResultSetPerClause(Searcher.options, q.filter || {}))
+      .pipe(new CalculateEntireResultSet(Searcher.options))
+      .pipe(new CalculateTotalHits(Searcher.options)).on('data', function (totalHits) {
+        return callback(null, totalHits)
+      })
   }
 
   return moduleReady(err, Searcher)

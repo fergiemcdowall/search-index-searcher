@@ -220,3 +220,32 @@ test('searching with no query returns everything, sorted by ID', function (t) {
     t.looseEqual(results, [ '9', '8', '7', '6', '5', '4', '3', '2', '10', '1' ])
   })
 })
+
+test('get total results simple query', function (t) {
+  t.plan(2)
+  sis.totalHits('swiss watch', function (err, totalHits) {
+    t.error(err)
+    t.equal(totalHits, 4)
+  })
+})
+
+test('get total results OR query', function (t) {
+  t.plan(2)
+  sis.totalHits({
+    query: [
+      {
+        AND: {
+          '*': ['swiss', 'watch']
+        }
+      },
+      {
+        AND: {
+          '*': ['apple']
+        }
+      }
+    ]
+  }, function (err, totalHits) {
+    t.error(err)
+    t.equal(totalHits, 5)
+  })
+})
