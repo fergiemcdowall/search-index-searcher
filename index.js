@@ -152,7 +152,7 @@ const getOptions = function (options, done) {
     separator: /[\|' \.,\-|(\n)]+/,
     stopwords: sw.en
   }, options)
-  options.log = bunyan.createLogger({
+  Searcher.options.log = bunyan.createLogger({
     name: 'search-index',
     level: options.logLevel
   })
