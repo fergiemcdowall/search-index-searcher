@@ -1,4 +1,3 @@
-const JSONStream = require('JSONStream')
 const Readable = require('stream').Readable
 const SearchIndexAdder = require('search-index-adder')
 const SearchIndexSearcher = require('../')
@@ -81,21 +80,20 @@ const batch = [
   }
 ]
 
-const s = new Readable()
+const s = new Readable({ objectMode: true })
 batch.forEach(function (item) {
-  s.push(JSON.stringify(item))
+  s.push(item)
 })
 s.push(null)
 
 test('initialize a search index', function (t) {
-  t.plan(13)
+  t.plan(2)
   SearchIndexAdder({
     indexPath: sandbox + '/si-stream',
     logLevel: logLevel
   }, function (err, indexer) {
     t.error(err)
-    s.pipe(JSONStream.parse())
-      .pipe(indexer.defaultPipeline())
+    s.pipe(indexer.defaultPipeline())
       .pipe(indexer.add({
         fieldOptions: [{
           fieldName: 'price'

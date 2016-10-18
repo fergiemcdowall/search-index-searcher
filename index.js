@@ -13,7 +13,7 @@ const Readable = require('stream').Readable
 const ScoreDocsOnField = require('./lib/ScoreDocsOnField.js').ScoreDocsOnField
 const ScoreTopScoringDocsTFIDF = require('./lib/ScoreTopScoringDocsTFIDF.js').ScoreTopScoringDocsTFIDF
 const SortTopScoringDocs = require('./lib/SortTopScoringDocs.js').SortTopScoringDocs
-const _defaults = require('lodash.defaults')
+// const _defaults = require('lodash.defaults')
 const bunyan = require('bunyan')
 const levelup = require('levelup')
 const matcher = require('./lib/matcher.js')
@@ -141,7 +141,7 @@ const initModule = function (err, Searcher, moduleReady) {
 
 const getOptions = function (options, done) {
   var Searcher = {}
-  Searcher.options = _defaults(options, {
+  Searcher.options = Object.assign({}, {
     deletable: true,
     fieldedSearch: true,
     store: true,
@@ -151,7 +151,7 @@ const getOptions = function (options, done) {
     nGramSeparator: ' ',
     separator: /[\|' \.,\-|(\n)]+/,
     stopwords: sw.en
-  })
+  }, options)
   options.log = bunyan.createLogger({
     name: 'search-index',
     level: options.logLevel
