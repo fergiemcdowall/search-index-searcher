@@ -36,7 +36,7 @@
     "stopword": "^0.1.1"
   },
   "devDependencies": {
-    "search-index-adder": "^0.1.15",
+    "search-index-adder": "^0.1.17",
     "standard": "^6.0.8",
     "tape": "^4.6.0"
   }
