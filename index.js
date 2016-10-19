@@ -117,7 +117,7 @@ const initModule = function (err, Searcher, moduleReady) {
     s.push('init')
     s.push(null)
     return s.pipe(
-      new GetIntersectionStream(Searcher.options, siUtil.getKeySet(q.query.AND)))
+      new GetIntersectionStream(Searcher.options, siUtil.getKeySet(q.query.AND, Searcher.options.keySeparator)))
       .pipe(new FetchDocsFromDB(Searcher.options))
   }
 
@@ -146,6 +146,7 @@ const getOptions = function (options, done) {
     fieldedSearch: true,
     store: true,
     indexPath: 'si',
+    keySeparator: '￮',
     logLevel: 'error',
     nGramLength: 1,
     nGramSeparator: ' ',
