@@ -1,6 +1,6 @@
 {
   "name": "search-index-searcher",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "The search module for search-index",
   "main": "index.js",
   "repository": {
@@ -13,7 +13,8 @@
     "searcher"
   ],
   "scripts": {
-    "test": "export SANDBOX=test/sandbox && rm -rf $SANDBOX && mkdir $SANDBOX && tape test/*.js && standard"
+    "lint": "standard --fix index.js lib/* test/*.js",
+    "test": "export SANDBOX=test/sandbox && rm -rf $SANDBOX && mkdir $SANDBOX && tape test/*.js && npm run lint"
   },
   "author": "Fergus McDowall",
   "license": "MIT",
@@ -22,7 +23,6 @@
   },
   "homepage": "https://github.com/fergiemcdowall/search-index-searcher#readme",
   "dependencies": {
-    "JSONStream": "^1.1.4",
     "bunyan": "^1.8.1",
     "intersect-arrays-to-stream": "^0.0.3",
     "leveldown": "^1.5.0",
@@ -32,8 +32,7 @@
     "lodash.sortedindexof": "^4.1.0",
     "lodash.spread": "^4.2.1",
     "lodash.union": "^4.6.0",
-    "lodash.uniq": "^4.5.0",
-    "stopword": "^0.1.1"
+    "lodash.uniq": "^4.5.0"
   },
   "devDependencies": {
     "search-index-adder": "^0.1.17",

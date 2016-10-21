@@ -7,7 +7,6 @@ const CalculateTotalHits = require('./lib/CalculateTotalHits.js').CalculateTotal
 const FetchDocsFromDB = require('./lib/FetchDocsFromDB.js').FetchDocsFromDB
 const FetchStoredDoc = require('./lib/FetchStoredDoc.js').FetchStoredDoc
 const GetIntersectionStream = require('./lib/GetIntersectionStream.js').GetIntersectionStream
-const JSONStream = require('JSONStream')
 const MergeOrConditions = require('./lib/MergeOrConditions.js').MergeOrConditions
 const Readable = require('stream').Readable
 const ScoreDocsOnField = require('./lib/ScoreDocsOnField.js').ScoreDocsOnField
@@ -18,17 +17,16 @@ const bunyan = require('bunyan')
 const levelup = require('levelup')
 const matcher = require('./lib/matcher.js')
 const siUtil = require('./lib/siUtil.js')
-const sw = require('stopword')
 
 const initModule = function (err, Searcher, moduleReady) {
   Searcher.bucketStream = function (q) {
     q = siUtil.getQueryDefaults(q)
-    const s = new Readable()
+    const s = new Readable({ objectMode: true })
     q.query.forEach(function (clause) {
-      s.push(JSON.stringify(clause))
+      s.push(clause)
     })
     s.push(null)
-    return s.pipe(JSONStream.parse())
+    return s
       .pipe(new CalculateResultSetPerClause(Searcher.options, q.filter || {}))
       .pipe(new CalculateEntireResultSet(Searcher.options))
       .pipe(new CalculateBuckets(Searcher.options, q.filter || {}, q.buckets))
@@ -36,12 +34,12 @@ const initModule = function (err, Searcher, moduleReady) {
 
   Searcher.categoryStream = function (q) {
     q = siUtil.getQueryDefaults(q)
-    const s = new Readable()
+    const s = new Readable({ objectMode: true })
     q.query.forEach(function (clause) {
-      s.push(JSON.stringify(clause))
+      s.push(clause)
     })
     s.push(null)
-    return s.pipe(JSONStream.parse())
+    return s
       .pipe(new CalculateResultSetPerClause(Searcher.options, q.filter || {}))
       .pipe(new CalculateEntireResultSet(Searcher.options))
       .pipe(new CalculateCategories(Searcher.options, q.category))
@@ -64,7 +62,7 @@ const initModule = function (err, Searcher, moduleReady) {
   }
 
   Searcher.get = function (docIDs) {
-    var s = new Readable()
+    var s = new Readable({ objectMode: true })
     docIDs.forEach(function (id) {
       s.push(id)
     })
@@ -78,19 +76,18 @@ const initModule = function (err, Searcher, moduleReady) {
 
   Searcher.search = function (q) {
     q = siUtil.getQueryDefaults(q)
-    const s = new Readable()
+    const s = new Readable({ objectMode: true })
     // more forgivable querying
     if (Object.prototype.toString.call(q.query) !== '[object Array]') {
       q.query = [q.query]
     }
     q.query.forEach(function (clause) {
-      s.push(JSON.stringify(clause))
+      s.push(clause)
     })
     s.push(null)
 
     if (q.sort) {
       return s
-        .pipe(JSONStream.parse())
         .pipe(new CalculateResultSetPerClause(Searcher.options))
         .pipe(new CalculateTopScoringDocs(Searcher.options, (q.offset + q.pageSize)))
         .pipe(new ScoreDocsOnField(Searcher.options, (q.offset + q.pageSize), q.sort))
@@ -99,7 +96,6 @@ const initModule = function (err, Searcher, moduleReady) {
         .pipe(new FetchStoredDoc(Searcher.options))
     } else {
       return s
-        .pipe(JSONStream.parse())
         .pipe(new CalculateResultSetPerClause(Searcher.options))
         .pipe(new CalculateTopScoringDocs(Searcher.options, (q.offset + q.pageSize)))
         .pipe(new ScoreTopScoringDocsTFIDF(Searcher.options))
@@ -113,23 +109,26 @@ const initModule = function (err, Searcher, moduleReady) {
     q = siUtil.getQueryDefaults(q)
     // just make this work for a simple one clause AND
     // TODO: add filtering, NOTting, multi-clause AND
-    var s = new Readable()
+    var s = new Readable({ objectMode: true })
     s.push('init')
     s.push(null)
-    return s.pipe(
-      new GetIntersectionStream(Searcher.options, siUtil.getKeySet(q.query.AND, Searcher.options.keySeparator)))
+    return s
+      .pipe(new GetIntersectionStream(Searcher.options,
+                                      siUtil.getKeySet(
+                                        q.query.AND,
+                                        Searcher.options.keySeparator
+                                      )))
       .pipe(new FetchDocsFromDB(Searcher.options))
   }
 
   Searcher.totalHits = function (q, callback) {
     q = siUtil.getQueryDefaults(q)
-    const s = new Readable()
+    const s = new Readable({ objectMode: true })
     q.query.forEach(function (clause) {
-      s.push(JSON.stringify(clause))
+      s.push(clause)
     })
     s.push(null)
-    s.pipe(JSONStream.parse())
-      .pipe(new CalculateResultSetPerClause(Searcher.options, q.filter || {}))
+    s.pipe(new CalculateResultSetPerClause(Searcher.options, q.filter || {}))
       .pipe(new CalculateEntireResultSet(Searcher.options))
       .pipe(new CalculateTotalHits(Searcher.options)).on('data', function (totalHits) {
         return callback(null, totalHits)
@@ -151,7 +150,7 @@ const getOptions = function (options, done) {
     nGramLength: 1,
     nGramSeparator: ' ',
     separator: /[\|' \.,\-|(\n)]+/,
-    stopwords: sw.en
+    stopwords: []
   }, options)
   Searcher.options.log = bunyan.createLogger({
     name: 'search-index',
