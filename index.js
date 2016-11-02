@@ -9,7 +9,6 @@ const FetchStoredDoc = require('./lib/FetchStoredDoc.js').FetchStoredDoc
 const GetIntersectionStream = require('./lib/GetIntersectionStream.js').GetIntersectionStream
 const MergeOrConditions = require('./lib/MergeOrConditions.js').MergeOrConditions
 const Readable = require('stream').Readable
-const Writeable = require('stream').Writeable
 const ScoreDocsOnField = require('./lib/ScoreDocsOnField.js').ScoreDocsOnField
 const ScoreTopScoringDocsTFIDF = require('./lib/ScoreTopScoringDocsTFIDF.js').ScoreTopScoringDocsTFIDF
 const SortTopScoringDocs = require('./lib/SortTopScoringDocs.js').SortTopScoringDocs

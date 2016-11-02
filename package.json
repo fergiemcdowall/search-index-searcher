@@ -1,6 +1,6 @@
 {
   "name": "search-index-searcher",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "The search module for search-index",
   "main": "index.js",
   "repository": {
@@ -35,7 +35,7 @@
     "lodash.uniq": "^4.5.0"
   },
   "devDependencies": {
-    "search-index-adder": "^0.1.17",
+    "search-index-adder": "^0.1.19",
     "standard": "^8.5.0",
     "tape": "^4.6.0"
   }
