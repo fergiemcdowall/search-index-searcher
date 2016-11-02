@@ -204,7 +204,7 @@ test('do a simple search with NOT and two filters', function (t) {
         '*': ['swiss', 'watch'],
         price: [{
           gte: '20',
-          lte: '9'
+          lte: '99'
         }],
         age: [{
           gte: '30',
