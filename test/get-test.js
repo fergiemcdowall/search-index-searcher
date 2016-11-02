@@ -64,7 +64,6 @@ test('should .get a doc', function (t) {
     }
   ]
   sis.get(['3']).on('data', function (data) {
-    data = JSON.parse(data)
     t.looseEqual(data, results.shift())
   }).on('end', function (end) {
     t.equal(results.length, 0)
@@ -83,7 +82,6 @@ test('should .get 2 docs', function (t) {
     test: 'this is the second doc'
   }]
   sis.get(['4', '2']).on('data', function (data) {
-    data = JSON.parse(data)
     t.looseEqual(data, results.shift())
   }).on('end', function (end) {
     t.equal(results.length, 0)

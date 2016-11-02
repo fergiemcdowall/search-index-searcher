@@ -131,7 +131,6 @@ test('do a simple streamy search', function (t) {
     }],
     pageSize: 10
   }).on('data', function (thing) {
-    thing = JSON.parse(thing)
     if (!thing.metadata) {
       results.push(thing)
     }
@@ -155,7 +154,6 @@ test('do a simple search with NOT', function (t) {
     }],
     pageSize: 10
   }).on('data', function (thing) {
-    thing = JSON.parse(thing)
     if (!thing.metadata) {
       results.push(thing)
     }
@@ -184,7 +182,6 @@ test('do a simple search with NOT and filter', function (t) {
       NOT: {'description': ['timekeeping']}
     }]
   }).on('data', function (thing) {
-    thing = JSON.parse(thing)
     if (!thing.metadata) {
       results.push(thing)
     }
@@ -218,7 +215,6 @@ test('do a simple search with NOT and two filters', function (t) {
     }],
     pageSize: 10
   }).on('data', function (thing) {
-    thing = JSON.parse(thing)
     if (!thing.metadata) {
       results.push(thing)
     }
@@ -242,7 +238,6 @@ test('search with OR', function (t) {
       AND: {'*': ['elite']}
     }]
   }).on('data', function (thing) {
-    thing = JSON.parse(thing)
     if (!thing.metadata) {
       results.push(thing)
     }
@@ -269,7 +264,6 @@ test('buckets', function (t) {
       set: true
     }]
   }).on('data', function (thing) {
-    // thing = JSON.parse(thing)
     t.looseEqual(
       thing,
       { field: 'price', set: true, gte: 2, lte: 3, value: [ '1', '10', '4', '7' ] }
@@ -429,6 +423,7 @@ test('categories with set', function (t) {
       result,
       // TODO- look at ordering of values (should be alphabetical)
       [
+        { key: '*', value: [ '10', '2', '3', '9' ] },
         { key: '33342', value: [ '10', '2', '9' ] },
         { key: '8293', value: [ '3' ] }
       ]
@@ -508,6 +503,7 @@ test('categories with value', function (t) {
     t.looseEqual(
       result,
       [
+        { key: '*', value: 10 },
         { key: '33342', value: 8 },
         { key: '346', value: 1 },
         { key: '8293', value: 1 }

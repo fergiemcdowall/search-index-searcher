@@ -129,7 +129,8 @@ test('do a simple scan', function (t) {
       AND: {'*': ['swiss', 'watch']}
     }
   }).on('data', function (doc) {
-    results.push(JSON.parse(doc).id)
+    results.push(doc.id)
+    // results.push(JSON.parse(doc).id)
   }).on('end', function () {
     t.looseEqual(results, [ '10', '2', '3', '9' ])
   })
@@ -143,7 +144,7 @@ test('do a simple scan with one word', function (t) {
       AND: {'*': ['watch']}
     }
   }).on('data', function (doc) {
-    results.push(JSON.parse(doc).id)
+    results.push(doc.id)
   }).on('end', function () {
     t.looseEqual(results, [ '1', '10', '2', '3', '7', '9' ])
   })
@@ -157,7 +158,7 @@ test('do a simple scan with one word on a given field', function (t) {
       AND: {'name': ['swiss']}
     }
   }).on('data', function (doc) {
-    results.push(JSON.parse(doc).id)
+    results.push(doc.id)
   }).on('end', function () {
     t.looseEqual(results, [ '10', '2', '3', '4', '5' ])
   })
@@ -177,7 +178,7 @@ test('do a simple scan with one word on a given field and filter', function (t) 
       }
     }
   }).on('data', function (doc) {
-    results.push(JSON.parse(doc).id)
+    results.push(doc.id)
   }).on('end', function () {
     t.looseEqual(results, [ '10', '2', '3', '5' ])
   })
@@ -193,7 +194,7 @@ test('do a simple search with a nicely formatted query object', function (t) {
       }
     }
   }).on('data', function (doc) {
-    results.push(JSON.parse(doc).id)
+    results.push(doc.id)
   }).on('end', function () {
     t.looseEqual(results, [ '9', '3', '2', '10' ])
   })
@@ -203,7 +204,7 @@ test('do a simple search with a simple string', function (t) {
   t.plan(1)
   var results = []
   sis.search('swiss watch').on('data', function (doc) {
-    results.push(JSON.parse(doc).id)
+    results.push(doc.id)
   }).on('end', function () {
     t.looseEqual(results, [ '9', '3', '2', '10' ])
   })
@@ -213,7 +214,7 @@ test('searching with no query returns everything, sorted by ID', function (t) {
   t.plan(1)
   var results = []
   sis.search().on('data', function (doc) {
-    results.push(JSON.parse(doc).id)
+    results.push(doc.id)
   }).on('end', function () {
     t.looseEqual(results, [ '9', '8', '7', '6', '5', '4', '3', '2', '10', '1' ])
   })

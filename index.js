@@ -9,6 +9,7 @@ const FetchStoredDoc = require('./lib/FetchStoredDoc.js').FetchStoredDoc
 const GetIntersectionStream = require('./lib/GetIntersectionStream.js').GetIntersectionStream
 const MergeOrConditions = require('./lib/MergeOrConditions.js').MergeOrConditions
 const Readable = require('stream').Readable
+const Writeable = require('stream').Writeable
 const ScoreDocsOnField = require('./lib/ScoreDocsOnField.js').ScoreDocsOnField
 const ScoreTopScoringDocsTFIDF = require('./lib/ScoreTopScoringDocsTFIDF.js').ScoreTopScoringDocsTFIDF
 const SortTopScoringDocs = require('./lib/SortTopScoringDocs.js').SortTopScoringDocs
@@ -34,6 +35,7 @@ const initModule = function (err, Searcher, moduleReady) {
 
   Searcher.categoryStream = function (q) {
     q = siUtil.getQueryDefaults(q)
+
     const s = new Readable({ objectMode: true })
     q.query.forEach(function (clause) {
       s.push(clause)
@@ -85,7 +87,6 @@ const initModule = function (err, Searcher, moduleReady) {
       s.push(clause)
     })
     s.push(null)
-
     if (q.sort) {
       return s
         .pipe(new CalculateResultSetPerClause(Searcher.options))
