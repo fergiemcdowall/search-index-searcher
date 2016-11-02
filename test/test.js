@@ -180,7 +180,7 @@ test('do a simple scan with one word on a given field and filter', function (t) 
   }).on('data', function (doc) {
     results.push(doc.id)
   }).on('end', function () {
-    t.looseEqual(results, [ '10', '2', '3', '5' ])
+    t.looseEqual(results, [ '10', '2', '3' ])
   })
 })
 
