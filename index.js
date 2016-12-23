@@ -109,7 +109,6 @@ const initModule = function (err, Searcher, moduleReady) {
     var s = new Readable({ objectMode: true })
     s.push('init')
     s.push(null)
-    console.log(JSON.stringify(q))
     return s
       .pipe(new GetIntersectionStream(Searcher.options,
                                       siUtil.getKeySet(

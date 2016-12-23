@@ -200,6 +200,16 @@ test('do a simple search with a nicely formatted query object', function (t) {
   })
 })
 
+test('do a simple search with an empty object', function (t) {
+  t.plan(1)
+  var results = []
+  sis.search({}).on('data', function (doc) {
+    results.push(doc.id)
+  }).on('end', function () {
+    t.looseEqual(results, [ '9', '8', '7', '6', '5', '4', '3', '2', '10', '1' ])
+  })
+})
+
 test('do a simple search with a simple string', function (t) {
   t.plan(1)
   var results = []
