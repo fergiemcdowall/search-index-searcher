@@ -94,15 +94,9 @@ test('initialize a search index', function (t) {
   }, function (err, indexer) {
     t.error(err)
     s.pipe(indexer.defaultPipeline())
-      .pipe(indexer.add({
-        fieldOptions: [{
-          fieldName: 'price'
-        }, {
-          fieldName: 'age'
-        }]
-      }))
+      .pipe(indexer.add())
       .on('data', function (data) {
-        t.ok(true, ' data recieved')
+        // tum te tum...
       })
       .on('end', function () {
         indexer.close(function (err) {

@@ -78,10 +78,6 @@ const initModule = function (err, Searcher, moduleReady) {
   Searcher.search = function (q) {
     q = siUtil.getQueryDefaults(q)
     const s = new Readable({ objectMode: true })
-    // more forgivable querying
-    if (Object.prototype.toString.call(q.query) !== '[object Array]') {
-      q.query = [q.query]
-    }
     q.query.forEach(function (clause) {
       s.push(clause)
     })
@@ -105,6 +101,7 @@ const initModule = function (err, Searcher, moduleReady) {
     }
   }
 
+  // TODO: seriously needs a rewrite
   Searcher.scan = function (q) {
     q = siUtil.getQueryDefaults(q)
     // just make this work for a simple one clause AND
@@ -112,10 +109,11 @@ const initModule = function (err, Searcher, moduleReady) {
     var s = new Readable({ objectMode: true })
     s.push('init')
     s.push(null)
+    console.log(JSON.stringify(q))
     return s
       .pipe(new GetIntersectionStream(Searcher.options,
                                       siUtil.getKeySet(
-                                        q.query.AND,
+                                        q.query[0].AND,
                                         Searcher.options.keySeparator
                                       )))
       .pipe(new FetchDocsFromDB(Searcher.options))
@@ -149,7 +147,7 @@ const getOptions = function (options, done) {
     logLevel: 'error',
     nGramLength: 1,
     nGramSeparator: ' ',
-    separator: /[\|' \.,\-|(\n)]+/,
+    separator: /[|' .,\-|(\n)]+/,
     stopwords: []
   }, options)
   Searcher.options.log = bunyan.createLogger({
