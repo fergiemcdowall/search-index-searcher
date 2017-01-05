@@ -1,3 +1,4 @@
+const AvailableFields = require('./lib/AvailableFields.js').AvailableFields
 const CalculateBuckets = require('./lib/CalculateBuckets.js').CalculateBuckets
 const CalculateCategories = require('./lib/CalculateCategories.js').CalculateCategories
 const CalculateEntireResultSet = require('./lib/CalculateEntireResultSet.js').CalculateEntireResultSet
@@ -58,8 +59,12 @@ const initModule = function (err, Searcher, moduleReady) {
     })
   }
 
-  Searcher.dbReadStream = function () {
-    return Searcher.options.indexes.createReadStream()
+  Searcher.availableFields = function () {
+    const sep = Searcher.options.keySeparator
+    return Searcher.options.indexes.createReadStream({
+      gte: 'FIELD' + sep,
+      lte: 'FIELD' + sep + sep
+    }).pipe(new AvailableFields(Searcher.options))
   }
 
   Searcher.get = function (docIDs) {
@@ -69,6 +74,13 @@ const initModule = function (err, Searcher, moduleReady) {
     })
     s.push(null)
     return s.pipe(new FetchDocsFromDB(Searcher.options))
+  }
+
+  Searcher.fieldNames = function() {
+    return Searcher.options.indexes.createReadStream({
+      gte: 'FIELD',
+      lte: 'FIELD'
+    })
   }
 
   Searcher.match = function (q) {
