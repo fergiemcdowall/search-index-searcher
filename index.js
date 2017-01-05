@@ -76,7 +76,7 @@ const initModule = function (err, Searcher, moduleReady) {
     return s.pipe(new FetchDocsFromDB(Searcher.options))
   }
 
-  Searcher.fieldNames = function() {
+  Searcher.fieldNames = function () {
     return Searcher.options.indexes.createReadStream({
       gte: 'FIELD',
       lte: 'FIELD'
@@ -85,6 +85,10 @@ const initModule = function (err, Searcher, moduleReady) {
 
   Searcher.match = function (q) {
     return matcher.match(q, Searcher.options)
+  }
+
+  Searcher.dbReadStream = function () {
+    return Searcher.options.indexes.createReadStream()
   }
 
   Searcher.search = function (q) {
