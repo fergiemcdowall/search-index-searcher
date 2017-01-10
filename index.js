@@ -13,7 +13,6 @@ const Readable = require('stream').Readable
 const ScoreDocsOnField = require('./lib/ScoreDocsOnField.js').ScoreDocsOnField
 const ScoreTopScoringDocsTFIDF = require('./lib/ScoreTopScoringDocsTFIDF.js').ScoreTopScoringDocsTFIDF
 const SortTopScoringDocs = require('./lib/SortTopScoringDocs.js').SortTopScoringDocs
-// const _defaults = require('lodash.defaults')
 const bunyan = require('bunyan')
 const levelup = require('levelup')
 const matcher = require('./lib/matcher.js')
@@ -35,7 +34,6 @@ const initModule = function (err, Searcher, moduleReady) {
 
   Searcher.categoryStream = function (q) {
     q = siUtil.getQueryDefaults(q)
-
     const s = new Readable({ objectMode: true })
     q.query.forEach(function (clause) {
       s.push(clause)
@@ -44,7 +42,7 @@ const initModule = function (err, Searcher, moduleReady) {
     return s
       .pipe(new CalculateResultSetPerClause(Searcher.options, q.filter || {}))
       .pipe(new CalculateEntireResultSet(Searcher.options))
-      .pipe(new CalculateCategories(Searcher.options, q.category))
+      .pipe(new CalculateCategories(Searcher.options, q))
   }
 
   Searcher.close = function (callback) {
