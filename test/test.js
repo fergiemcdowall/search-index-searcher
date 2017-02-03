@@ -230,6 +230,31 @@ test('searching with no query returns everything, sorted by ID', function (t) {
   })
 })
 
+test('searching with BOOST and OR query', function (t) {
+  t.plan(1)
+  var results = []
+  sis.search({
+    query: [
+      {
+        AND: {
+          'description': ['collection']
+        },
+        BOOST: 1
+      },
+      {
+        AND: {
+          'name': ['swiss']
+        },
+        BOOST: 5
+      }
+    ]
+  }).on('data', function (doc) {
+    results.push(doc.id)
+  }).on('end', function () {
+    t.looseEqual(results, [ '5', '4', '3', '2', '10', '8' ])
+  })
+})
+
 test('get total results simple query', function (t) {
   t.plan(2)
   sis.totalHits('swiss watch', function (err, totalHits) {
