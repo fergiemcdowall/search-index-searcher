@@ -251,7 +251,7 @@ test('searching with BOOST and OR query', function (t) {
   }).on('data', function (doc) {
     results.push(doc.id)
   }).on('end', function () {
-    t.looseEqual(results, [ '5', '4', '3', '2', '10', '8' ])
+    t.looseEqual(results, [ '3', '2', '10', '5', '4', '8' ])
   })
 })
 
