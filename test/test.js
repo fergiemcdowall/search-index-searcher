@@ -283,3 +283,76 @@ test('get total results OR query', function (t) {
     t.equal(totalHits, 5)
   })
 })
+
+test('simple matching', function (t) {
+  t.plan(5)
+  var results = ['timepiece',
+                 'time',
+                 'timekeeping',
+                 'timeless']
+  sis.match({
+    beginsWith: 'time'
+  }).on('data', function (data) {
+    t.equal(data, results.shift())
+  }).on('end', function () {
+    t.equal(results.length, 0)
+  }).on('error', function (e) {
+    t.error(e)
+  })
+})
+
+test('ID matching', function (t) {
+  t.plan(5)
+  var results = [
+    {
+      timepiece: [ '4', '5', '6', '7', '8' ]
+    },
+    {
+      time: [ '2' ]
+    },
+    {
+      timekeeping: [ '10' ]
+    },
+    {
+      timeless: [ '5' ]
+    }
+  ]
+  sis.match({
+    beginsWith: 'time',
+    type: 'ID'
+  }).on('data', function (data) {
+    t.looseEqual(data, results.shift())
+  }).on('end', function () {
+    t.equal(results.length, 0)
+  }).on('error', function (e) {
+    t.error(e)
+  })
+})
+
+test('count matching', function (t) {
+  t.plan(5)
+  var results = [
+    {
+      timepiece: 5
+    },
+    {
+      time: 1
+    },
+    {
+      timekeeping: 1
+    },
+    {
+      timeless: 1
+    }
+  ]
+  sis.match({
+    beginsWith: 'time',
+    type: 'count'
+  }).on('data', function (data) {
+    t.looseEqual(data, results.shift())
+  }).on('end', function () {
+    t.equal(results.length, 0)
+  }).on('error', function (e) {
+    t.error(e)
+  })
+})

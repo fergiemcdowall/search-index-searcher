@@ -1,11 +1,11 @@
 {
   "name": "search-index-searcher",
-  "version": "0.1.28",
+  "version": "0.0.0-development",
   "description": "The search module for search-index",
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fergiemcdowall/search-index-searcher.git"
+    "url": "https://github.com/fergiemcdowall/search-index-searcher.git"
   },
   "keywords": [
     "search",
@@ -14,7 +14,8 @@
   ],
   "scripts": {
     "lint": "standard --fix index.js lib/* test/*.js",
-    "test": "export SANDBOX=test/sandbox && rm -rf $SANDBOX && mkdir $SANDBOX && tape test/*.js && npm run lint"
+    "test": "export SANDBOX=test/sandbox && rm -rf $SANDBOX && mkdir $SANDBOX && tape test/*.js && npm run lint",
+    "semantic-release": "semantic-release pre && npm publish && semantic-release post"
   },
   "author": "Fergus McDowall",
   "license": "MIT",
@@ -36,7 +37,9 @@
   },
   "devDependencies": {
     "search-index-adder": "^0.1.27",
+    "semantic-release-cli": "^3.0.3",
     "standard": "^9.0.1",
-    "tape": "^4.6.3"
+    "tape": "^4.6.3",
+    "semantic-release": "^6.3.2"
   }
 }
