@@ -121,15 +121,15 @@ test('initialize a searcher', function (t) {
 
 test('classify', function (t) {
   var results = [
-    { 'this': [ '10', '2', '7' ] },
-    { 'is a': [ '4' ] },
-    { 'swiss': [ '10', '2', '3', '4', '5', '9' ] },
-    { 'and': [ '1', '10', '7' ] },
-    { 'watch': [ '1', '10', '2', '3', '7', '9' ] },
-    { 'watch from': [ '7' ] },
-    { 'watch from tw': [ '7' ] },
-    { 'from': [ '5', '6', '7', '8' ] },
-    { 'from tw': [ '7' ] }
+    { token: 'this', documents: [ '10', '2', '7' ] },
+    { token: 'is a', documents: [ '4' ] },
+    { token: 'swiss', documents: [ '10', '2', '3', '4', '5', '9' ] },
+    { token: 'and', documents: [ '1', '10', '7' ] },
+    { token: 'watch', documents: [ '1', '10', '2', '3', '7', '9' ] },
+    { token: 'watch from', documents: [ '7' ] },
+    { token: 'watch from tw', documents: [ '7' ] },
+    { token: 'from', documents: [ '5', '6', '7', '8' ] },
+    { token: 'from tw', documents: [ '7' ] }
   ]
   var s = new Readable()
   'This is a really interesting sentence about swiss watches and also a watch from tw wooo'
