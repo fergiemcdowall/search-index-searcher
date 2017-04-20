@@ -3,6 +3,11 @@
   "version": "0.0.0-development",
   "description": "The search module for search-index",
   "main": "index.js",
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/fergiemcdowall/search-index-searcher.git"
@@ -13,6 +18,7 @@
     "searcher"
   ],
   "scripts": {
+    "commit": "git-cz",
     "lint": "standard --fix index.js lib/* test/*.js",
     "test": "export SANDBOX=test/sandbox && rm -rf $SANDBOX && mkdir $SANDBOX && tape test/*.js && npm run lint",
     "semantic-release": "semantic-release pre && npm publish && semantic-release post"
@@ -36,10 +42,11 @@
     "lodash.uniq": "^4.5.0"
   },
   "devDependencies": {
+    "commitizen": "^2.9.6",
     "search-index-adder": "^0.1.27",
+    "semantic-release": "^6.3.2",
     "semantic-release-cli": "^3.0.3",
     "standard": "^9.0.1",
-    "tape": "^4.6.3",
-    "semantic-release": "^6.3.2"
+    "tape": "^4.6.3"
   }
 }
