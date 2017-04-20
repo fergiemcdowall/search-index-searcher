@@ -1,7 +1,7 @@
 const Readable = require('stream').Readable
 const SearchIndexAdder = require('search-index-adder')
 const SearchIndexSearcher = require('../')
-const logLevel = process.env.NODE_ENV || 'info'
+const logLevel = process.env.NODE_ENV || 'warn'
 const sandbox = process.env.SANDBOX || 'test/sandbox'
 const test = require('tape')
 
@@ -120,17 +120,18 @@ test('initialize a searcher', function (t) {
 })
 
 test('classify', function (t) {
-  var results = [
-    { token: 'this', documents: [ '10', '2', '7' ] },
+  var expectedResults = [
+    { token: 'and', documents: [ '1', '10', '7' ] },
+    { token: 'from', documents: [ '5', '6', '7', '8' ] },
+    { token: 'from tw', documents: [ '7' ] },
     { token: 'is a', documents: [ '4' ] },
     { token: 'swiss', documents: [ '10', '2', '3', '4', '5', '9' ] },
-    { token: 'and', documents: [ '1', '10', '7' ] },
+    { token: 'this', documents: [ '10', '2', '7' ] },
     { token: 'watch', documents: [ '1', '10', '2', '3', '7', '9' ] },
     { token: 'watch from', documents: [ '7' ] },
-    { token: 'watch from tw', documents: [ '7' ] },
-    { token: 'from', documents: [ '5', '6', '7', '8' ] },
-    { token: 'from tw', documents: [ '7' ] }
+    { token: 'watch from tw', documents: [ '7' ] }
   ]
+  var actualResults = []
   var s = new Readable()
   'This is a really interesting sentence about swiss watches and also a watch from tw wooo'
     .split(' ')
@@ -138,12 +139,15 @@ test('classify', function (t) {
       s.push(item)
     })
   s.push(null)
-  t.plan(9)
+  t.plan(1)
   s.pipe(sis.classify())
     .on('data', function (data) {
-      t.looseEquals(data, results.shift())
+      actualResults.push(data)
     })
     .on('error', function (err) {
       t.error(err)
+    })
+    .on('end', function () {
+      t.looseEquals(actualResults.sort(function (a, b) { return a.token > b.token }), expectedResults)
     })
 })
