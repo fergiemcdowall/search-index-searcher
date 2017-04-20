@@ -5,6 +5,7 @@ const CalculateEntireResultSet = require('./lib/CalculateEntireResultSet.js').Ca
 const CalculateResultSetPerClause = require('./lib/CalculateResultSetPerClause.js').CalculateResultSetPerClause
 const CalculateTopScoringDocs = require('./lib/CalculateTopScoringDocs.js').CalculateTopScoringDocs
 const CalculateTotalHits = require('./lib/CalculateTotalHits.js').CalculateTotalHits
+const Classify = require('./lib/Classify.js').Classify
 const FetchDocsFromDB = require('./lib/FetchDocsFromDB.js').FetchDocsFromDB
 const FetchStoredDoc = require('./lib/FetchStoredDoc.js').FetchStoredDoc
 const GetIntersectionStream = require('./lib/GetIntersectionStream.js').GetIntersectionStream
@@ -43,6 +44,10 @@ const initModule = function (err, Searcher, moduleReady) {
       .pipe(new CalculateResultSetPerClause(Searcher.options, q.filter || {}))
       .pipe(new CalculateEntireResultSet(Searcher.options))
       .pipe(new CalculateCategories(Searcher.options, q))
+  }
+
+  Searcher.classify = function (callback) {
+    return new Classify(Searcher)
   }
 
   Searcher.close = function (callback) {
