@@ -140,10 +140,10 @@ test('classify', function (t) {
   s.push(null)
   t.plan(9)
   s.pipe(sis.classify())
-    .on('data', function(data) {
+    .on('data', function (data) {
       t.looseEquals(data, results.shift())
     })
-    .on('error', function(err) {
+    .on('error', function (err) {
       t.error(err)
     })
 })

@@ -287,9 +287,9 @@ test('get total results OR query', function (t) {
 test('simple matching', function (t) {
   t.plan(5)
   var results = ['timepiece',
-                 'time',
-                 'timekeeping',
-                 'timeless']
+    'time',
+    'timekeeping',
+    'timeless']
   sis.match({
     beginsWith: 'time'
   }).on('data', function (data) {
@@ -305,16 +305,20 @@ test('ID matching', function (t) {
   t.plan(5)
   var results = [
     {
-      timepiece: [ '4', '5', '6', '7', '8' ]
+      token: 'timepiece',
+      documents: [ '4', '5', '6', '7', '8' ]
     },
     {
-      time: [ '2' ]
+      token: 'time',
+      documents: [ '2' ]
     },
     {
-      timekeeping: [ '10' ]
+      token: 'timekeeping',
+      documents: [ '10' ]
     },
     {
-      timeless: [ '5' ]
+      token: 'timeless',
+      documents: [ '5' ]
     }
   ]
   sis.match({
@@ -333,16 +337,20 @@ test('count matching', function (t) {
   t.plan(5)
   var results = [
     {
-      timepiece: 5
+      token: 'timepiece',
+      documentCount: 5
     },
     {
-      time: 1
+      token: 'time',
+      documentCount: 1
     },
     {
-      timekeeping: 1
+      token: 'timekeeping',
+      documentCount: 1
     },
     {
-      timeless: 1
+      token: 'timeless',
+      documentCount: 1
     }
   ]
   sis.match({
