@@ -20,7 +20,7 @@
   "scripts": {
     "commit": "git-cz",
     "lint": "standard --fix index.js lib/* test/*.js",
-    "test": "export SANDBOX=test/sandbox && rm -rf $SANDBOX && mkdir $SANDBOX && tape test/*.js && npm run lint",
+    "test": "npm run lint && export SANDBOX=test/sandbox && rm -rf $SANDBOX && mkdir $SANDBOX && tape test/*.js",
     "semantic-release": "semantic-release pre && npm publish && semantic-release post"
   },
   "author": "Fergus McDowall",

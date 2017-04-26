@@ -292,7 +292,6 @@ test('classify on name field', function (t) {
     })
 })
 
-
 test('classify on name field and return docs', function (t) {
   var expectedResults = [
     batch[0],
@@ -303,7 +302,7 @@ test('classify on name field and return docs', function (t) {
     batch[4],
     batch[6]
   ]
-  
+
   var s = new Readable()
   'Endlessly sophisticated This is a really interesting sentence about swiss army watches and also a watch from tw wooo'
     .split(' ')
@@ -325,12 +324,11 @@ test('classify on name field and return docs', function (t) {
       t.error(err)
     })
     .on('end', function () {
-      ids = ids.sort().filter(function(item, pos, ary) {
-        return !pos || item != ary[pos - 1];
+      ids = ids.sort().filter(function (item, pos, ary) {
+        return !pos || item !== ary[pos - 1]
       })
-      sis.get(ids).on('data', function(data) {
+      sis.get(ids).on('data', function (data) {
         t.looseEqual(data, expectedResults.shift())
       })
     })
 })
-
