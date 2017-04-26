@@ -90,7 +90,6 @@ test('initialize a search index', function (t) {
   t.plan(2)
   SearchIndexAdder({
     indexPath: sandbox + '/si-classifier',
-    fieldedSearch: false,
     nGramLength: {gte: 1, lte: 3},
     logLevel: logLevel
   }, function (err, indexer) {
@@ -120,18 +119,54 @@ test('initialize a searcher', function (t) {
 })
 
 test('classify', function (t) {
+  t.plan(11)
   var expectedResults = [
-    { token: 'and', documents: [ '1', '10', '7' ] },
-    { token: 'from', documents: [ '5', '6', '7', '8' ] },
-    { token: 'from tw', documents: [ '7' ] },
-    { token: 'is a', documents: [ '4' ] },
-    { token: 'swiss', documents: [ '10', '2', '3', '4', '5', '9' ] },
     { token: 'this', documents: [ '10', '2', '7' ] },
+    { token: 'is', documents: [ '4', '8' ] },
+    { token: 'a', documents: [ '4', '6', '7' ] },
+    { token: 'tw', documents: [ '7' ] },
+    { token: 'swiss', documents: [ '10', '2', '3', '4', '5', '9' ] },
+    { token: 'and', documents: [ '1', '10', '7' ] },
+    { token: 'a', documents: [ '4', '6', '7' ] },
+    { token: 'watch', documents: [ '1', '10', '2', '3', '7', '9' ] },
+    { token: 'from', documents: [ '5', '6', '7', '8' ] },
+    { token: 'tw', documents: [ '7' ] }
+  ]
+  var s = new Readable()
+  'This is a really tw interesting sentence about swiss watches and also a watch from tw wooo'
+    .split(' ')
+    .forEach(function (item) {
+      s.push(item)
+    })
+  s.push(null)
+  s.pipe(sis.classify())
+    .on('data', function (data) {
+      t.looseEquals(data, expectedResults.shift())
+    })
+    .on('error', function (err) {
+      t.error(err)
+    })
+    .on('end', function () {
+      t.equals(expectedResults.length, 0)
+    })
+})
+
+test('classify maxNGramLength is 3', function (t) {
+  var expectedResults = [
+    { token: 'this', documents: [ '10', '2', '7' ] },
+    { token: 'is', documents: [ '4', '8' ] },
+    { token: 'is a', documents: [ '4' ] },
+    { token: 'a', documents: [ '4', '6', '7' ] },
+    { token: 'swiss', documents: [ '10', '2', '3', '4', '5', '9' ] },
+    { token: 'and', documents: [ '1', '10', '7' ] },
+    { token: 'a', documents: [ '4', '6', '7' ] },
     { token: 'watch', documents: [ '1', '10', '2', '3', '7', '9' ] },
     { token: 'watch from', documents: [ '7' ] },
-    { token: 'watch from tw', documents: [ '7' ] }
+    { token: 'watch from tw', documents: [ '7' ] },
+    { token: 'from', documents: [ '5', '6', '7', '8' ] },
+    { token: 'from tw', documents: [ '7' ] },
+    { token: 'tw', documents: [ '7' ] }
   ]
-  var actualResults = []
   var s = new Readable()
   'This is a really interesting sentence about swiss watches and also a watch from tw wooo'
     .split(' ')
@@ -139,15 +174,89 @@ test('classify', function (t) {
       s.push(item)
     })
   s.push(null)
-  t.plan(1)
-  s.pipe(sis.classify())
+  t.plan(14)
+  s.pipe(sis.classify({
+    maxNGramLength: 3
+  }))
     .on('data', function (data) {
-      actualResults.push(data)
+      t.looseEquals(data, expectedResults.shift())
     })
     .on('error', function (err) {
       t.error(err)
     })
     .on('end', function () {
-      t.looseEquals(actualResults.sort(function (a, b) { return a.token > b.token }), expectedResults)
+      t.equals(expectedResults.length, 0)
+    })
+})
+
+test('classify maxNGramLength is 3', function (t) {
+  var expectedResults = [
+    { token: 'endlessly', documents: [ '10' ] },
+    { token: 'endlessly sophisticated', documents: [ '10' ] },
+    { token: 'sophisticated', documents: [ '10' ] },
+    { token: 'this', documents: [ '10', '2', '7' ] },
+    { token: 'is', documents: [ '4', '8' ] },
+    { token: 'is a', documents: [ '4' ] },
+    { token: 'a', documents: [ '4', '6', '7' ] },
+    { token: 'swiss', documents: [ '10', '2', '3', '4', '5', '9' ] },
+    { token: 'and', documents: [ '1', '10', '7' ] },
+    { token: 'a', documents: [ '4', '6', '7' ] },
+    { token: 'watch', documents: [ '1', '10', '2', '3', '7', '9' ] },
+    { token: 'watch from', documents: [ '7' ] },
+    { token: 'watch from tw', documents: [ '7' ] },
+    { token: 'from', documents: [ '5', '6', '7', '8' ] },
+    { token: 'from tw', documents: [ '7' ] },
+    { token: 'tw', documents: [ '7' ] }
+  ]
+  var s = new Readable()
+  'Endlessly sophisticated This is a really interesting sentence about swiss watches and also a watch from tw wooo'
+    .split(' ')
+    .forEach(function (item) {
+      s.push(item)
+    })
+  s.push(null)
+  t.plan(17)
+  s.pipe(sis.classify({
+    maxNGramLength: 3
+  }))
+    .on('data', function (data) {
+      t.looseEquals(data, expectedResults.shift())
+    })
+    .on('error', function (err) {
+      t.error(err)
+    })
+    .on('end', function () {
+      t.equals(expectedResults.length, 0)
+    })
+})
+
+test('classify on name field', function (t) {
+  var expectedResults = [
+    { token: 'swiss', documents: [ '10', '2', '3', '4', '5' ] },
+    { token: 'swiss army', documents: [ '2' ] },
+    { token: 'army', documents: [ '2' ] },
+    { token: 'watch', documents: [ '1' ] },
+    { token: 'tw', documents: [ '7' ] }
+  ]
+  var s = new Readable()
+  'Endlessly sophisticated This is a really interesting sentence about swiss army watches and also a watch from tw wooo'
+    .split(' ')
+    .forEach(function (item) {
+      s.push(item)
+    })
+  s.push(null)
+  t.plan(6)
+  s.pipe(sis.classify({
+    maxNGramLength: 5,
+    field: 'name'
+  }))
+    .on('data', function (data) {
+      t.looseEquals(data, expectedResults.shift())
+    })
+    .on('error', function (err) {
+      t.error(err)
+    })
+    .on('end', function () {
+      t.equals(expectedResults.length, 0)
     })
 })

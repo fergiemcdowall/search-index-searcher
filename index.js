@@ -46,8 +46,8 @@ const initModule = function (err, Searcher, moduleReady) {
       .pipe(new CalculateCategories(Searcher.options, q))
   }
 
-  Searcher.classify = function (callback) {
-    return new Classify(Searcher)
+  Searcher.classify = function (ops) {
+    return new Classify(Searcher, ops)
   }
 
   Searcher.close = function (callback) {

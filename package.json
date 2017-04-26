@@ -39,7 +39,8 @@
     "lodash.sortedindexof": "^4.1.0",
     "lodash.spread": "^4.2.1",
     "lodash.union": "^4.6.0",
-    "lodash.uniq": "^4.5.0"
+    "lodash.uniq": "^4.5.0",
+    "ngraminator": "0.0.1"
   },
   "devDependencies": {
     "commitizen": "^2.9.6",
@@ -47,6 +48,7 @@
     "semantic-release": "^6.3.2",
     "semantic-release-cli": "^3.0.3",
     "standard": "^9.0.1",
+    "stopword": "^0.1.1",
     "tape": "^4.6.3"
   }
 }
