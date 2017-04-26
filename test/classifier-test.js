@@ -260,3 +260,77 @@ test('classify on name field', function (t) {
       t.equals(expectedResults.length, 0)
     })
 })
+
+test('classify on name field', function (t) {
+  var expectedResults = [
+    { token: 'swiss', documents: [ '10', '2', '3', '4', '5' ] },
+    { token: 'swiss army', documents: [ '2' ] },
+    { token: 'army', documents: [ '2' ] },
+    { token: 'watch', documents: [ '1' ] },
+    { token: 'tw', documents: [ '7' ] }
+  ]
+  var s = new Readable()
+  'Endlessly sophisticated This is a really interesting sentence about swiss army watches and also a watch from tw wooo'
+    .split(' ')
+    .forEach(function (item) {
+      s.push(item)
+    })
+  s.push(null)
+  t.plan(6)
+  s.pipe(sis.classify({
+    maxNGramLength: 5,
+    field: 'name'
+  }))
+    .on('data', function (data) {
+      t.looseEquals(data, expectedResults.shift())
+    })
+    .on('error', function (err) {
+      t.error(err)
+    })
+    .on('end', function () {
+      t.equals(expectedResults.length, 0)
+    })
+})
+
+
+test('classify on name field and return docs', function (t) {
+  var expectedResults = [
+    batch[0],
+    batch[9],
+    batch[1],
+    batch[2],
+    batch[3],
+    batch[4],
+    batch[6]
+  ]
+  
+  var s = new Readable()
+  'Endlessly sophisticated This is a really interesting sentence about swiss army watches and also a watch from tw wooo'
+    .split(' ')
+    .forEach(function (item) {
+      s.push(item)
+    })
+  s.push(null)
+  t.plan(7)
+
+  var ids = []
+  s.pipe(sis.classify({
+    maxNGramLength: 5,
+    field: 'name'
+  }))
+    .on('data', function (data) {
+      ids = ids.concat(data.documents)
+    })
+    .on('error', function (err) {
+      t.error(err)
+    })
+    .on('end', function () {
+      ids = ids.sort().filter(function(item, pos, ary) {
+        return !pos || item != ary[pos - 1];
+      })
+      sis.get(ids).on('data', function(data) {
+        t.looseEqual(data, expectedResults.shift())
+      })
+    })
+})
+
