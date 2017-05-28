@@ -1,11 +1,16 @@
 {
   "name": "search-index-searcher",
-  "version": "0.1.28",
+  "version": "0.0.0-development",
   "description": "The search module for search-index",
   "main": "index.js",
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fergiemcdowall/search-index-searcher.git"
+    "url": "https://github.com/fergiemcdowall/search-index-searcher.git"
   },
   "keywords": [
     "search",
@@ -13,8 +18,10 @@
     "searcher"
   ],
   "scripts": {
+    "commit": "git-cz",
     "lint": "standard --fix index.js lib/* test/*.js",
-    "test": "export SANDBOX=test/sandbox && rm -rf $SANDBOX && mkdir $SANDBOX && tape test/*.js && npm run lint"
+    "test": "npm run lint && export SANDBOX=test/sandbox && rm -rf $SANDBOX && mkdir $SANDBOX && tape test/*.js",
+    "semantic-release": "semantic-release pre && npm publish && semantic-release post"
   },
   "author": "Fergus McDowall",
   "license": "MIT",
@@ -31,11 +38,16 @@
     "lodash.sortedindexof": "^4.1.0",
     "lodash.spread": "^4.2.1",
     "lodash.union": "^4.6.0",
-    "lodash.uniq": "^4.5.0"
+    "lodash.uniq": "^4.5.0",
+    "ngraminator": "0.0.1"
   },
   "devDependencies": {
+    "commitizen": "^2.9.6",
     "search-index-adder": "^0.1.27",
+    "semantic-release": "^6.3.2",
+    "semantic-release-cli": "^3.0.3",
     "standard": "^9.0.1",
+    "stopword": "^0.1.1",
     "tape": "^4.6.3"
   }
 }

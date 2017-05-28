@@ -1,7 +1,7 @@
 const Readable = require('stream').Readable
 const SearchIndexAdder = require('search-index-adder')
 const SearchIndexSearcher = require('../')
-const logLevel = process.env.NODE_ENV || 'info'
+const logLevel = process.env.NODE_ENV || 'warn'
 const sandbox = process.env.SANDBOX || 'test/sandbox'
 const test = require('tape')
 
@@ -281,5 +281,86 @@ test('get total results OR query', function (t) {
   }, function (err, totalHits) {
     t.error(err)
     t.equal(totalHits, 5)
+  })
+})
+
+test('simple matching', function (t) {
+  t.plan(5)
+  var results = ['timepiece',
+    'time',
+    'timekeeping',
+    'timeless']
+  sis.match({
+    beginsWith: 'time'
+  }).on('data', function (data) {
+    t.equal(data, results.shift())
+  }).on('end', function () {
+    t.equal(results.length, 0)
+  }).on('error', function (e) {
+    t.error(e)
+  })
+})
+
+test('ID matching', function (t) {
+  t.plan(5)
+  var results = [
+    {
+      token: 'timepiece',
+      documents: [ '4', '5', '6', '7', '8' ]
+    },
+    {
+      token: 'time',
+      documents: [ '2' ]
+    },
+    {
+      token: 'timekeeping',
+      documents: [ '10' ]
+    },
+    {
+      token: 'timeless',
+      documents: [ '5' ]
+    }
+  ]
+  sis.match({
+    beginsWith: 'time',
+    type: 'ID'
+  }).on('data', function (data) {
+    t.looseEqual(data, results.shift())
+  }).on('end', function () {
+    t.equal(results.length, 0)
+  }).on('error', function (e) {
+    t.error(e)
+  })
+})
+
+test('count matching', function (t) {
+  t.plan(5)
+  var results = [
+    {
+      token: 'timepiece',
+      documentCount: 5
+    },
+    {
+      token: 'time',
+      documentCount: 1
+    },
+    {
+      token: 'timekeeping',
+      documentCount: 1
+    },
+    {
+      token: 'timeless',
+      documentCount: 1
+    }
+  ]
+  sis.match({
+    beginsWith: 'time',
+    type: 'count'
+  }).on('data', function (data) {
+    t.looseEqual(data, results.shift())
+  }).on('end', function () {
+    t.equal(results.length, 0)
+  }).on('error', function (e) {
+    t.error(e)
   })
 })
