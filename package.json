@@ -41,6 +41,9 @@
     "lodash.uniq": "^4.5.0",
     "ngraminator": "0.0.1"
   },
+  "optionalDependencies": {
+    "leveldown": "^1.6.0"
+  },
   "devDependencies": {
     "commitizen": "^2.9.6",
     "search-index-adder": "^0.1.27",
