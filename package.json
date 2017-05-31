@@ -20,7 +20,7 @@
   "scripts": {
     "changelog": "node -e \"require('standard-changelog')().pipe(process.stdout)\"",
     "commit": "git-cz",
-    "cut-release": "npm run -s changelog | git tag -a v$(npm run -s print-version-from-package-json) --file -",
+    "cut-release": "npm run -s changelog | git tag -a v$(npm run -s print-version-from-package-json) --file - --cleanup=verbatim",
     "lint": "standard --fix index.js lib/* test/*.js",
     "print-version-from-package-json": "node -e \"process.stdout.write(require('./package.json').version)\"",
     "test": "npm run lint && export SANDBOX=test/sandbox && rm -rf $SANDBOX && mkdir $SANDBOX && tape test/*.js"
