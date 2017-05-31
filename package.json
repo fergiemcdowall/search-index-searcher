@@ -20,7 +20,8 @@
   "scripts": {
     "changelog": "node -e \"require('standard-changelog')().pipe(process.stdout)\"",
     "commit": "git-cz",
-    "cut-release": "npm run -s changelog | git tag -a v$(npm run -s print-version-from-package-json) --file - --cleanup=verbatim",
+    "github-release": "conventional-github-releaser -p angular",
+    "tag-release": "npm run -s changelog | git tag -a v$(npm run -s print-version-from-package-json) --file - --cleanup=verbatim",
     "lint": "standard --fix index.js lib/* test/*.js",
     "print-version-from-package-json": "node -e \"process.stdout.write(require('./package.json').version)\"",
     "test": "npm run lint && export SANDBOX=test/sandbox && rm -rf $SANDBOX && mkdir $SANDBOX && tape test/*.js"
@@ -47,10 +48,11 @@
     "leveldown": "^1.6.0"
   },
   "devDependencies": {
-    "standard-changelog": "^1.0.1",
     "commitizen": "^2.9.6",
+    "conventional-github-releaser": "^1.1.9",
     "search-index-adder": "^0.1.27",
     "standard": "^9.0.1",
+    "standard-changelog": "^1.0.1",
     "stopword": "^0.1.1",
     "tape": "^4.6.3"
   }
