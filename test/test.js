@@ -1,7 +1,7 @@
 const Readable = require('stream').Readable
 const SearchIndexAdder = require('search-index-adder')
 const SearchIndexSearcher = require('../')
-const logLevel = process.env.NODE_ENV || 'warn'
+const logLevel = process.env.NODE_ENV || 'error'
 const sandbox = process.env.SANDBOX || 'test/sandbox'
 const test = require('tape')
 
@@ -93,17 +93,14 @@ test('initialize a search index', function (t) {
     logLevel: logLevel
   }, function (err, indexer) {
     t.error(err)
-    s.pipe(indexer.defaultPipeline())
-      .pipe(indexer.add({
-        fieldOptions: [{
-          fieldName: 'price',
-          filter: true
-        }]
-      }))
-      .on('data', function (data) {
-        // t.ok(true, ' data recieved')
-      })
-      .on('end', function () {
+    s.pipe(indexer.feed({
+      objectMode: true,
+      fieldOptions: [{
+        fieldName: 'price',
+        filter: true
+      }]
+    }))
+      .on('finish', function () {
         indexer.close(function (err) {
           t.error(err)
         })

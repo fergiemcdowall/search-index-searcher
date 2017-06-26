@@ -1,6 +1,6 @@
 const SearchIndexAdder = require('search-index-adder')
 const SearchIndexSearcher = require('../')
-const logLevel = process.env.NODE_ENV || 'info'
+const logLevel = process.env.NODE_ENV || 'error'
 const test = require('tape')
 const Readable = require('stream').Readable
 
@@ -45,11 +45,8 @@ test('should index test data into the index', function (t) {
     test: 'this is the fourth doc'
   })
   s.push(null)
-  s.pipe(sia.defaultPipeline())
-    .pipe(sia.add())
-    .on('data', function (data) {
-      // t.ok(true, 'indexed')
-    }).on('end', function () {
+  s.pipe(sia.feed({ objectMode: true }))
+    .on('finish', function () {
       t.ok(true, 'ended')
     })
 })
