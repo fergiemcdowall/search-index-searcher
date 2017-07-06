@@ -1,6 +1,6 @@
 {
   "name": "search-index-searcher",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "The search module for search-index",
   "main": "index.js",
   "config": {
@@ -49,13 +49,14 @@
   },
   "devDependencies": {
     "commitizen": "^2.9.6",
-    "conventional-github-releaser": "^1.1.11",
+    "conventional-github-releaser": "1.1.10",
     "level-out": "0.0.7",
     "number-to-words": "^1.2.3",
-    "search-index-adder": "^0.3.3",
+    "search-index-adder": "^0.3.8",
     "standard": "^9.0.1",
     "standard-changelog": "^1.0.1",
     "stopword": "^0.1.1",
-    "tape": "^4.6.3"
+    "tape": "^4.6.3",
+    "written-number": "^0.6.3"
   }
 }
