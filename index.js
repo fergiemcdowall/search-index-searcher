@@ -112,7 +112,7 @@ const initModule = function (err, Searcher, moduleReady) {
     } else {
       return s
         .pipe(new CalculateResultSetPerClause(Searcher.options))
-        .pipe(new CalculateTopScoringDocs(Searcher.options, (q.offset + q.pageSize)))
+        .pipe(new CalculateTopScoringDocs(Searcher.options, q.offset, q.pageSize))
         .pipe(new ScoreTopScoringDocsTFIDF(Searcher.options))
         .pipe(new MergeOrConditions(q))
         .pipe(new SortTopScoringDocs(q))
