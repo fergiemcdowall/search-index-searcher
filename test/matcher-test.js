@@ -34,8 +34,8 @@ test('make an index with storeDocument: false', t => {
   t.plan(1)
   var s = new Readable({ objectMode: true })
   for (var i = 1; i <= batchSize; i++) {
-    var tokens = 'this is the amazing' + num(i) + ' doc number ' + num(i)
-      + ((i%2 === 0) ? ' amazingfive' : '')
+    var tokens = 'this is the amazing' + num(i) + ' doc number ' + num(i) +
+      ((i % 2 === 0) ? ' amazingfive' : '')
     s.push({
       id: i,
       tokens: tokens
@@ -62,7 +62,7 @@ test('can match, alphabetical sort, limit to 5', t => {
     'amazingeighteen',
     'amazingeleven',
     'amazingfifteen',
-    'amazingfive',
+    'amazingfive'
   ]
   t.plan(5)
   sis.match({
@@ -103,7 +103,7 @@ test('can match, frequency sort', t => {
     .on('data', function (d) {
       t.equal(d.token, result.shift())
     })
-    .on('end', function (err) {
+    .on('end', function () {
       t.equals(result.length, 0)
     })
     .on('error', function (err) {
