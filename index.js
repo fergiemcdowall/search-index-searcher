@@ -9,7 +9,8 @@ const Classify = require('./lib/Classify.js').Classify
 const FetchDocsFromDB = require('./lib/FetchDocsFromDB.js').FetchDocsFromDB
 const FetchStoredDoc = require('./lib/FetchStoredDoc.js').FetchStoredDoc
 const GetIntersectionStream = require('./lib/GetIntersectionStream.js').GetIntersectionStream
-const MergeOrConditions = require('./lib/MergeOrConditions.js').MergeOrConditions
+const MergeOrConditionsTFIDF = require('./lib/MergeOrConditionsTFIDF.js').MergeOrConditionsTFIDF
+const MergeOrConditionsFieldSort = require('./lib/MergeOrConditionsFieldSort.js').MergeOrConditionsFieldSort
 const Readable = require('stream').Readable
 const ScoreDocsOnField = require('./lib/ScoreDocsOnField.js').ScoreDocsOnField
 const ScoreTopScoringDocsTFIDF = require('./lib/ScoreTopScoringDocsTFIDF.js').ScoreTopScoringDocsTFIDF
@@ -18,6 +19,7 @@ const bunyan = require('bunyan')
 const levelup = require('levelup')
 const matcher = require('./lib/matcher.js')
 const siUtil = require('./lib/siUtil.js')
+const sw = require('stopword')
 
 const initModule = function (err, Searcher, moduleReady) {
   Searcher.bucketStream = function (q) {
@@ -102,20 +104,34 @@ const initModule = function (err, Searcher, moduleReady) {
     })
     s.push(null)
     if (q.sort) {
+
+      /*
+
+         Can be 2 scenarios:
+         1) Lots of hits in a smallish index (dense)
+         2) a few hits in a gigantic index (sparse)
+
+         Since 2) can be solved by simply sorting afterwards- solve 1) first
+
+         should be
+
+         1) Calculate resultset per clause
+         2) Traverse TF arrays and check for intersections down to "seek limit"
+         3) Merge/trim pages/sort
+         4) Fetch stored docs
+
+       */
       return s
         .pipe(new CalculateResultSetPerClause(Searcher.options))
-        .pipe(new CalculateTopScoringDocs(Searcher.options, (q.offset + q.pageSize)))
         .pipe(new ScoreDocsOnField(Searcher.options, (q.offset + q.pageSize), q.sort))
-        .pipe(new MergeOrConditions(q))
-        .pipe(new SortTopScoringDocs(q))
+        .pipe(new MergeOrConditionsFieldSort(q))
         .pipe(new FetchStoredDoc(Searcher.options))
     } else {
       return s
         .pipe(new CalculateResultSetPerClause(Searcher.options))
         .pipe(new CalculateTopScoringDocs(Searcher.options, q.offset, q.pageSize))
         .pipe(new ScoreTopScoringDocsTFIDF(Searcher.options))
-        .pipe(new MergeOrConditions(q))
-        .pipe(new SortTopScoringDocs(q))
+        .pipe(new MergeOrConditionsTFIDF(q.offset, q.pageSize))
         .pipe(new FetchStoredDoc(Searcher.options))
     }
   }
@@ -166,7 +182,7 @@ const getOptions = function (options, done) {
     nGramLength: 1,
     nGramSeparator: ' ',
     separator: /[|' .,\-|(\n)]+/,
-    stopwords: []
+    stopwords: sw.en
   }, options)
   Searcher.options.log = bunyan.createLogger({
     name: 'search-index',

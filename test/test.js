@@ -4,6 +4,7 @@ const SearchIndexSearcher = require('../')
 const logLevel = process.env.NODE_ENV || 'error'
 const sandbox = process.env.SANDBOX || 'test/sandbox'
 const test = require('tape')
+const sw = require('stopword')
 
 var sis
 
@@ -11,7 +12,7 @@ const batch = [
   {
     id: '1',
     name: 'Apple Watch',
-    description: 'Receive and respond to notiﬁcations in an instant.',
+    description: 'Receive and respond to notiﬁcations in an instant. Apple rocks',
     price: '20002',
     age: '346'
   },
@@ -25,7 +26,7 @@ const batch = [
   {
     id: '3',
     name: "Versace Men's Swiss",
-    description: "Versace Men's Swiss Chronograph Mystique Sport Two-Tone Ion-Plated Stainless Steel Bracelet Watch",
+    description: "Versace Men's Swiss Swiss Chronograph Mystique Sport Two-Tone Ion-Plated Stainless Steel Bracelet Watch and a juicy apple",
     price: '4716',
     age: '8293'
   },
@@ -90,7 +91,8 @@ test('initialize a search index', function (t) {
   t.plan(2)
   SearchIndexAdder({
     indexPath: sandbox + '/si',
-    logLevel: logLevel
+    logLevel: logLevel,
+    stopwords: sw.en
   }, function (err, indexer) {
     t.error(err)
     s.pipe(indexer.feed({
@@ -118,20 +120,21 @@ test('initialize a searcher', function (t) {
   })
 })
 
-test('do a simple scan', function (t) {
-  t.plan(1)
-  var results = []
-  sis.scan({
-    query: {
-      AND: {'*': ['swiss', 'watch']}
-    }
-  }).on('data', function (doc) {
-    results.push(doc.id)
-    // results.push(JSON.parse(doc).id)
-  }).on('end', function () {
-    t.looseEqual(results, [ '10', '2', '3', '9' ])
-  })
-})
+/* test('do a simple scan', function (t) {
+ *   t.plan(1)
+ *   var results = []
+ *   sis.scan({
+ *     query: {
+ *       AND: {'*': ['swiss', 'watch']}
+ *     }
+ *   }).on('data', function (doc) {
+ *     results.push(doc.id)
+ *     results.push(JSON.parse(doc).id)
+ *   }).on('end', function () {
+ *     t.looseEqual(results, [ '10', '2', '3', '9' ])
+ *   })
+ * })
+ * */
 
 test('do a simple scan with one word', function (t) {
   t.plan(1)
@@ -193,7 +196,31 @@ test('do a simple search with a nicely formatted query object', function (t) {
   }).on('data', function (doc) {
     results.push(doc.id)
   }).on('end', function () {
-    t.looseEqual(results, [ '9', '3', '2', '10' ])
+    t.looseEqual(results, [ '9', '2', '10', '3' ])
+  })
+})
+
+test('do a simple search with a nicely formatted query object', function (t) {
+  t.plan(1)
+  var results = []
+  sis.search({
+    query: [
+      {
+        AND: {
+          '*': ['swiss', 'watch']
+        }
+      },
+      {
+        AND: {
+          '*': ['apple']
+        }
+      }
+    ]
+  }).on('data', function (doc) {
+    /* console.log(JSON.stringify(doc, null, 1)) */
+    results.push(doc.id)
+  }).on('end', function () {
+    t.looseEqual(results, [ '1', '3', '9', '2', '10' ])
   })
 })
 
@@ -211,9 +238,10 @@ test('do a simple search with a simple string', function (t) {
   t.plan(1)
   var results = []
   sis.search('swiss watch').on('data', function (doc) {
+    /* console.log(JSON.stringify(doc, null, 1)) */
     results.push(doc.id)
   }).on('end', function () {
-    t.looseEqual(results, [ '9', '3', '2', '10' ])
+    t.looseEqual(results, [ '9', '2', '10', '3' ])
   })
 })
 
@@ -227,7 +255,7 @@ test('searching with no query returns everything, sorted by ID', function (t) {
   })
 })
 
-test('searching with BOOST and OR query', function (t) {
+test('searching with WEIGHT and OR query', function (t) {
   t.plan(1)
   var results = []
   sis.search({
@@ -236,13 +264,13 @@ test('searching with BOOST and OR query', function (t) {
         AND: {
           'description': ['collection']
         },
-        BOOST: 1
+        WEIGHT: 1
       },
       {
         AND: {
           'name': ['swiss']
         },
-        BOOST: 5
+        WEIGHT: 5
       }
     ]
   }).on('data', function (doc) {
