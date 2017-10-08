@@ -14,7 +14,6 @@ const MergeOrConditionsFieldSort = require('./lib/MergeOrConditionsFieldSort.js'
 const Readable = require('stream').Readable
 const ScoreDocsOnField = require('./lib/ScoreDocsOnField.js').ScoreDocsOnField
 const ScoreTopScoringDocsTFIDF = require('./lib/ScoreTopScoringDocsTFIDF.js').ScoreTopScoringDocsTFIDF
-const SortTopScoringDocs = require('./lib/SortTopScoringDocs.js').SortTopScoringDocs
 const bunyan = require('bunyan')
 const levelup = require('levelup')
 const matcher = require('./lib/matcher.js')
@@ -104,7 +103,6 @@ const initModule = function (err, Searcher, moduleReady) {
     })
     s.push(null)
     if (q.sort) {
-
       /*
 
          Can be 2 scenarios:
