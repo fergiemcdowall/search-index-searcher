@@ -1,3 +1,4 @@
+const Logger = require('js-logger')
 const AvailableFields = require('./lib/AvailableFields.js').AvailableFields
 const CalculateBuckets = require('./lib/CalculateBuckets.js').CalculateBuckets
 const CalculateCategories = require('./lib/CalculateCategories.js').CalculateCategories
@@ -14,7 +15,6 @@ const MergeOrConditionsFieldSort = require('./lib/MergeOrConditionsFieldSort.js'
 const Readable = require('stream').Readable
 const ScoreDocsOnField = require('./lib/ScoreDocsOnField.js').ScoreDocsOnField
 const ScoreTopScoringDocsTFIDF = require('./lib/ScoreTopScoringDocsTFIDF.js').ScoreTopScoringDocsTFIDF
-const bunyan = require('bunyan')
 const levelup = require('levelup')
 const matcher = require('./lib/matcher.js')
 const siUtil = require('./lib/siUtil.js')
@@ -176,16 +176,21 @@ const getOptions = function (options, done) {
     store: true,
     indexPath: 'si',
     keySeparator: '￮',
-    logLevel: 'error',
+    logLevel: 'ERROR',
+    logHandler: Logger.createDefaultHandler(),
     nGramLength: 1,
     nGramSeparator: ' ',
     separator: /[|' .,\-|(\n)]+/,
     stopwords: sw.en
   }, options)
-  Searcher.options.log = bunyan.createLogger({
-    name: 'search-index',
-    level: options.logLevel
-  })
+  Searcher.options.log = Logger.get('search-index-searcher')
+  // We pass the log level as string because the Logger[logLevel] returns
+  // an object, and Object.assign deosn't make deep assign so it breakes
+  // We used toUpperCase() for backward compatibility
+  Searcher.options.log.setLevel(Logger[Searcher.options.logLevel.toUpperCase()])
+  // Use the global one because the library doesn't support providing handler to named logger
+  Logger.setHandler(Searcher.options.logHandler)
+
   if (!options.indexes) {
     levelup(Searcher.options.indexPath || 'si', {
       valueEncoding: 'json'
