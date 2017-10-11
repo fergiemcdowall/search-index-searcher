@@ -42,7 +42,8 @@
     "lodash.spread": "^4.2.1",
     "lodash.union": "^4.6.0",
     "lodash.uniq": "^4.5.0",
-    "ngraminator": "0.0.1"
+    "ngraminator": "0.0.1",
+    "stopword": "^0.1.8"
   },
   "optionalDependencies": {
     "leveldown": "^1.6.0"
@@ -55,7 +56,6 @@
     "search-index-adder": "^0.3.9",
     "standard": "^9.0.1",
     "standard-changelog": "^1.0.1",
-    "stopword": "^0.1.1",
     "tape": "^4.6.3",
     "written-number": "^0.6.3"
   }
