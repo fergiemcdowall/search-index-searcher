@@ -13,12 +13,14 @@ const GetIntersectionStream = require('./lib/GetIntersectionStream.js').GetInter
 const MergeOrConditionsTFIDF = require('./lib/MergeOrConditionsTFIDF.js').MergeOrConditionsTFIDF
 const MergeOrConditionsFieldSort = require('./lib/MergeOrConditionsFieldSort.js').MergeOrConditionsFieldSort
 const Readable = require('stream').Readable
+const ReplaceSynonyms = require('./lib/ReplaceSynonyms.js').ReplaceSynonyms
 const ScoreDocsOnField = require('./lib/ScoreDocsOnField.js').ScoreDocsOnField
 const ScoreTopScoringDocsTFIDF = require('./lib/ScoreTopScoringDocsTFIDF.js').ScoreTopScoringDocsTFIDF
 const levelup = require('levelup')
 const matcher = require('./lib/matcher.js')
 const siUtil = require('./lib/siUtil.js')
 const sw = require('stopword')
+
 
 const initModule = function (err, Searcher, moduleReady) {
   Searcher.bucketStream = function (q) {
@@ -120,12 +122,14 @@ const initModule = function (err, Searcher, moduleReady) {
 
        */
       return s
+        .pipe(new ReplaceSynonyms(Searcher.options))
         .pipe(new CalculateResultSetPerClause(Searcher.options))
         .pipe(new ScoreDocsOnField(Searcher.options, (q.offset + q.pageSize), q.sort))
         .pipe(new MergeOrConditionsFieldSort(q))
         .pipe(new FetchStoredDoc(Searcher.options))
     } else {
       return s
+        .pipe(new ReplaceSynonyms(Searcher.options))
         .pipe(new CalculateResultSetPerClause(Searcher.options))
         .pipe(new CalculateTopScoringDocs(Searcher.options, q.offset, q.pageSize))
         .pipe(new ScoreTopScoringDocsTFIDF(Searcher.options))
