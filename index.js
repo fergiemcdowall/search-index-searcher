@@ -21,7 +21,6 @@ const matcher = require('./lib/matcher.js')
 const siUtil = require('./lib/siUtil.js')
 const sw = require('stopword')
 
-
 const initModule = function (err, Searcher, moduleReady) {
   Searcher.bucketStream = function (q) {
     q = siUtil.getQueryDefaults(q)
