@@ -53,7 +53,7 @@
     "conventional-github-releaser": "1.1.13",
     "level-out": "0.0.7",
     "number-to-words": "^1.2.3",
-    "search-index-adder": "^0.4.0",
+    "search-index-adder": "*",
     "standard": "^9.0.1",
     "standard-changelog": "^1.0.1",
     "tape": "^4.6.3",
